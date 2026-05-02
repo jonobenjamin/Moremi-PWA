@@ -1,15 +1,10 @@
-// Configure your web app in Firebase Console (project: e.g. Moremi-app), then paste the web SDK snippet here.
-const firebaseConfig = {
-  apiKey: "AIzaSyCHpJdRUch5Na_6HgM6dxgWxfoKeciPo_s",
-  authDomain: "wildlifetracker-4d28b.firebaseapp.com",
-  projectId: "wildlifetracker-4d28b",
-  storageBucket: "wildlifetracker-4d28b.firebasestorage.app",
-  messagingSenderId: "209541121506",
-  appId: "1:209541121506:web:7fe9890f91be06dc4ba5bb",
-  measurementId: "G-4XLR7JTEEH"
-};
+/**
+ * Moremi PWA — Firebase + API root (edit this file only).
+ *
+ * Set MOREMI_API_BASE to your Vercel URL. Paste firebaseConfig from Firebase Console → Project settings → Web app.
+ * MOREMI_FIRESTORE_DATABASE_ID usually '(default)'; must match Vercel FIRESTORE_DATABASE_ID.
+ */
 
-// Initialize Firebase
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
 import {
   getAuth,
@@ -29,18 +24,27 @@ import {
   serverTimestamp
 } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 
-console.log('Firebase config loaded - using original project: wildlifetracker-4d28b');
+const MOREMI_API_BASE = 'https://moremi-pwa-backend.vercel.app';
+const MOREMI_FIRESTORE_DATABASE_ID = '(default)';
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app, "wildlifetracker-db");
+const firebaseConfig = {
+  apiKey: 'PASTE_WEB_API_KEY',
+  authDomain: 'PASTE_PROJECT_ID.firebaseapp.com',
+  projectId: 'PASTE_PROJECT_ID',
+  storageBucket: 'PASTE_PROJECT_ID.firebasestorage.app',
+  messagingSenderId: 'PASTE_MESSAGING_SENDER_ID',
+  appId: 'PASTE_APP_ID',
+};
 
-console.log('Firebase initialized:', { app, auth, db });
+window.__MOREMI_API_BASE__ = MOREMI_API_BASE;
 
-// Export for use in other modules
-window.firebaseAuth = {
-  auth,
-  db,
+const missingFirebase =
+  !firebaseConfig.projectId ||
+  firebaseConfig.projectId.includes('PASTE') ||
+  !firebaseConfig.apiKey ||
+  firebaseConfig.apiKey.includes('PASTE');
+
+const firebaseExports = {
   signInWithCustomToken,
   signInWithPhoneNumber,
   RecaptchaVerifier,
@@ -54,4 +58,27 @@ window.firebaseAuth = {
   serverTimestamp
 };
 
-console.log('window.firebaseAuth set:', window.firebaseAuth);
+if (missingFirebase) {
+  console.error(
+    '[Moremi] Edit docs/firebase-config.js: paste Web app keys from Firebase Console and set MOREMI_API_BASE.'
+  );
+  window.__MOREMI_FIREBASE_READY__ = false;
+  window.firebaseAuth = {
+    auth: null,
+    db: null,
+    ...firebaseExports
+  };
+} else {
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app, MOREMI_FIRESTORE_DATABASE_ID);
+
+  console.log('Moremi Firebase:', firebaseConfig.projectId, 'Firestore:', MOREMI_FIRESTORE_DATABASE_ID);
+
+  window.__MOREMI_FIREBASE_READY__ = true;
+  window.firebaseAuth = {
+    auth,
+    db,
+    ...firebaseExports
+  };
+}

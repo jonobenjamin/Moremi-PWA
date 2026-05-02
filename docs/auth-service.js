@@ -64,6 +64,10 @@ class AuthService {
   waitForFirebase() {
     return new Promise((resolve) => {
       const checkFirebase = () => {
+        if (window.__MOREMI_FIREBASE_READY__ === false) {
+          resolve();
+          return;
+        }
         if (window.firebaseAuth && window.firebaseAuth.auth && window.firebaseAuth.db) {
           this.auth = window.firebaseAuth.auth;
           this.db = window.firebaseAuth.db;
@@ -76,9 +80,19 @@ class AuthService {
     });
   }
 
+  apiBase() {
+    const b = window.__MOREMI_API_BASE__;
+    if (!b) {
+      console.error('Moremi: firebase-config.js must set window.__MOREMI_API_BASE__');
+      return '';
+    }
+    return String(b).replace(/\/$/, '');
+  }
+
   async loginWithPassword(username, password) {
-    const apiBase = window.__MOREMI_API_BASE__ || 'https://wildlife-tracker-gxz5.vercel.app';
+    const apiBase = this.apiBase();
     console.log('Password login for:', username);
+    if (!apiBase) throw new Error('API URL not set — edit docs/firebase-config.js');
     const response = await fetch(`${apiBase}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -101,7 +115,8 @@ class AuthService {
   }
 
   async registerAccount({ username, password, email, phone, displayName }) {
-    const apiBase = window.__MOREMI_API_BASE__ || 'https://wildlife-tracker-gxz5.vercel.app';
+    const apiBase = this.apiBase();
+    if (!apiBase) throw new Error('API URL not set — edit docs/firebase-config.js');
     const body = {
       username: String(username).trim(),
       password,
@@ -144,7 +159,9 @@ class AuthService {
   async requestEmailPin(email, name) {
     try {
       console.log('Making PIN request for:', email);
-      const response = await fetch('https://wildlife-tracker-gxz5.vercel.app/api/auth/request-pin', {
+      const apiBase = this.apiBase();
+      if (!apiBase) throw new Error('API URL not set — edit docs/firebase-config.js');
+      const response = await fetch(`${apiBase}/api/auth/request-pin`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -174,7 +191,9 @@ class AuthService {
   async verifyEmailPin(email, pin) {
     try {
       console.log('Making PIN verification request for:', email, 'PIN length:', pin.length);
-      const response = await fetch('https://wildlife-tracker-gxz5.vercel.app/api/auth/verify-pin', {
+      const apiBase = this.apiBase();
+      if (!apiBase) throw new Error('API URL not set — edit docs/firebase-config.js');
+      const response = await fetch(`${apiBase}/api/auth/verify-pin`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

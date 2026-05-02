@@ -8,6 +8,11 @@ class AuthController {
   async init() {
     console.log('Auth controller initializing...');
 
+    if (window.__MOREMI_FIREBASE_READY__ === false) {
+      console.log('Firebase not configured (firebase-config.js). Fix config then reload.');
+      return;
+    }
+
     // Wait for auth services to be ready
     await this.waitForServices();
     console.log('Auth services ready');
@@ -79,7 +84,7 @@ class AuthController {
     if (window._flutter && window._flutter.loader) {
       const loadPromise = window._flutter.loader.load({
         serviceWorkerSettings: {
-          serviceWorkerVersion: "2154313630"
+          serviceWorkerVersion: "200661858"
         }
       });
       if (loadPromise && typeof loadPromise.then === 'function') {

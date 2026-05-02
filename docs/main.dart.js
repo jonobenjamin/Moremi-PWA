@@ -95829,7 +95829,7 @@ p=4
 m=new A.cF(Date.now(),0,!1).ES(-6048e8).aAB().Mh()
 e=t.N
 s=7
-return A.I(A.aJ2(A.fZ("https://wildlife-tracker-gxz5.vercel.app/api/observations/recent?since="+A.k(m)),A.aF(["x-api-key",u.I],e,e)).mD(0,B.oD),$async$oM)
+return A.I(A.aJ2(A.fZ("https://moremi-pwa-backend.vercel.app/api/observations/recent?since="+A.k(m)),A.aF(["x-api-key",u.I],e,e)).mD(0,B.oD),$async$oM)
 case 7:l=b
 if(l.b!==200){e=A.dH("Server "+l.b)
 throw A.e(e)}e=l
@@ -95971,7 +95971,7 @@ if(J.aG(j,"sighting_count")!=null)J.h5(i,"sighting_count",J.aG(j,"sighting_count
 if(J.aG(j,"sighting_image")!=null){J.h5(i,"sighting_image",J.aG(j,"sighting_image"))
 b=J.aG(j,"sighting_image_name")
 if(b==null)b="photo.jpg"
-J.h5(i,"sighting_image_name",b)}b=A.fZ("https://wildlife-tracker-gxz5.vercel.app/api/observations")
+J.h5(i,"sighting_image_name",b)}b=A.fZ("https://moremi-pwa-backend.vercel.app/api/observations")
 a1=A.aF(["Content-Type","application/json","x-api-key",u.I],e,e)
 a2=n.un()
 if(a2!=null)a1.m(0,"Authorization","Bearer "+a2)
@@ -96268,7 +96268,7 @@ break}n.a6(new A.aDi(n))
 p=4
 i=t.N
 s=7
-return A.I(A.aJ2(A.fZ("https://wildlife-tracker-gxz5.vercel.app/api/observations/mine"),A.aF(["Authorization","Bearer "+e],i,i)).mD(0,B.oE),$async$qU)
+return A.I(A.aJ2(A.fZ("https://moremi-pwa-backend.vercel.app/api/observations/mine"),A.aF(["Authorization","Bearer "+e],i,i)).mD(0,B.oE),$async$qU)
 case 7:m=b
 if(m.b!==200){i=A.dH("HTTP "+m.b)
 throw A.e(i)}i=m
