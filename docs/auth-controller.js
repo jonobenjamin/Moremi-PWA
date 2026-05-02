@@ -5,22 +5,56 @@ class AuthController {
     console.log('AuthController constructor called');
   }
 
+  showConfigRequired() {
+    if (document.getElementById('moremi-config-wall')) return;
+    const el = document.createElement('div');
+    el.id = 'moremi-config-wall';
+    el.style.cssText =
+      'position:fixed;inset:0;z-index:100000;background:#1a2744;color:#e8eef9;padding:22px;font-family:system-ui,sans-serif;overflow:auto;line-height:1.5;';
+    el.innerHTML =
+      '<h1 style="margin:0 0 12px 0;font-size:1.35rem">Finish Firebase setup</h1>' +
+      '<p>Open <code style="background:#2a3f66;padding:3px 8px;border-radius:6px">docs/firebase-config.js</code> in your project and replace every <strong>PASTE_…</strong> value with your <strong>Moremi</strong> web app keys (Firebase Console → Project settings).</p>' +
+      '<p style="margin:12px 0"><strong>Important:</strong> On Vercel, <code>FIREBASE_SERVICE_ACCOUNT_KEY</code> must be from the <strong>same</strong> Firebase project. If it is still the old account, API writes will keep going to the old database.</p>' +
+      '<p><button type="button" id="moremi-hard-reset" style="padding:12px 18px;font-size:16px;border-radius:10px;border:none;background:#38bdf8;color:#0f172a;font-weight:600;cursor:pointer;margin-top:8px">Clear cached old app &amp; reload</button></p>' +
+      '<p style="opacity:0.85;font-size:14px;margin-top:20px">If you already updated files but still see the old map screen, the service worker was holding an old <code>main.dart.js</code>. Use the button above once.</p>';
+
+    document.body.appendChild(el);
+
+    document.getElementById('moremi-hard-reset').addEventListener('click', async function () {
+      try {
+        localStorage.removeItem('userAuthenticated');
+        localStorage.removeItem('authenticatedUserName');
+        localStorage.removeItem('authenticatedUsername');
+        localStorage.removeItem('firebaseIdToken');
+        localStorage.removeItem('firebaseUid');
+      } catch (e) {}
+      try {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map((r) => r.unregister()));
+      } catch (e) {}
+      try {
+        const keys = await caches.keys();
+        await Promise.all(keys.map((k) => caches.delete(k)));
+      } catch (e) {}
+      window.location.reload(true);
+    });
+  }
+
   async init() {
     console.log('Auth controller initializing...');
 
-    if (window.__MOREMI_FIREBASE_READY__ === false) {
-      console.log('Firebase not configured (firebase-config.js). Fix config then reload.');
+    // Must be explicitly true — not undefined (avoids racing before firebase-config.js).
+    if (window.__MOREMI_FIREBASE_READY__ !== true) {
+      console.warn('Firebase not ready: edit docs/firebase-config.js (paste real Web app keys).');
+      this.showConfigRequired();
       return;
     }
 
-    // Wait for auth services to be ready
     await this.waitForServices();
     console.log('Auth services ready');
 
-    // Check if we have a previously authenticated user stored locally
     const storedAuth = localStorage.getItem('userAuthenticated');
     const storedUserName = localStorage.getItem('authenticatedUserName');
-
     console.log('DEBUG: storedAuth:', storedAuth, 'storedUserName:', storedUserName);
 
     if (storedAuth === 'true' && storedUserName) {
@@ -29,7 +63,6 @@ class AuthController {
       return;
     }
 
-    // Check if user is currently authenticated with Firebase
     const isAuthenticated = window.authService.isAuthenticated();
     console.log('Current Firebase auth state:', isAuthenticated);
 
@@ -39,7 +72,6 @@ class AuthController {
       return;
     }
 
-    // User is not authenticated - show auth UI
     console.log('User not authenticated - showing auth UI');
     window.authUI.showLoginTypeSelection();
   }
@@ -58,29 +90,23 @@ class AuthController {
   }
 
   showAuthScreen() {
-    // Auth UI is already initialized and showing, nothing to do
     console.log('Auth screen should already be visible');
   }
 
   startFlutterApp() {
-    console.log('🎯 STARTING FLUTTER APP - User is authenticated');
+    console.log('STARTING Flutter app');
 
-    // Prevent multiple calls
     if (this.flutterStarted) {
       console.log('Flutter app already started, skipping');
       return;
     }
     this.flutterStarted = true;
 
-    // Hide auth overlay if it exists
     const overlay = document.getElementById('auth-overlay');
     if (overlay) {
       overlay.style.display = 'none';
-      console.log('Auth overlay hidden');
     }
 
-    // Start Flutter app - bootstrap script should already be loaded
-    console.log('Starting Flutter app - calling loader...');
     if (window._flutter && window._flutter.loader) {
       const loadPromise = window._flutter.loader.load({
         serviceWorkerSettings: {
@@ -90,24 +116,22 @@ class AuthController {
       if (loadPromise && typeof loadPromise.then === 'function') {
         loadPromise.then(() => this.triggerOfflinePrefetch()).catch(() => {});
       } else {
-        // Fallback: trigger prefetch after a short delay (loader may not return promise)
         setTimeout(() => this.triggerOfflinePrefetch(), 3000);
       }
-      console.log('Flutter loader called successfully');
     } else {
       console.error('Flutter loader not available');
     }
   }
 
-  /** Prefetch all app resources + OSM tiles when online so app works in airplane mode */
   triggerOfflinePrefetch() {
     if (!navigator.onLine || !navigator.serviceWorker) return;
-    navigator.serviceWorker.ready.then(reg => {
-      if (reg.active) {
-        reg.active.postMessage('downloadOffline');
-        console.log('Triggered offline prefetch for airplane mode');
-      }
-    }).catch(() => {});
+    navigator.serviceWorker.ready
+      .then((reg) => {
+        if (reg.active) {
+          reg.active.postMessage('downloadOffline');
+        }
+      })
+      .catch(() => {});
   }
 
   showOfflineMessage() {
@@ -116,38 +140,29 @@ class AuthController {
     container.innerHTML = `
       <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); display: flex; justify-content: center; align-items: center; z-index: 9999; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
         <div style="background: white; border-radius: 16px; padding: 24px; max-width: 400px; width: 90%; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2); text-align: center;">
-          <h2 style="margin: 0 0 20px 0; color: #333; font-size: 24px;">KPR Monitoring App</h2>
-          <div style="font-size: 48px; margin-bottom: 20px;">📱</div>
+          <h2 style="margin: 0 0 20px 0; color: #333; font-size: 24px;">Moremi wildlife</h2>
           <p style="color: #666; margin-bottom: 20px; font-size: 16px;">
-            You're currently offline. This app requires an internet connection for initial setup and authentication.
-          </p>
-          <p style="color: #666; margin-bottom: 30px; font-size: 14px;">
-            Please connect to the internet and try again.
+            You appear to be offline. Connect to the internet to sign in.
           </p>
           <button onclick="window.location.reload()" style="background: linear-gradient(135deg, #007aff, #0056cc); color: white; border: none; padding: 16px 20px; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; width: 100%; box-sizing: border-box; min-height: 48px;">
-            Retry Connection
+            Retry
           </button>
         </div>
       </div>
     `;
-
     document.body.appendChild(container);
   }
 }
 
-// Initialize auth controller when DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
-  console.log('DOMContentLoaded fired - creating and initializing auth controller');
+function bootstrapMoremiAuth() {
+  if (window.__MOREMI_AUTH_BOOTSTRAP_DONE) return;
+  window.__MOREMI_AUTH_BOOTSTRAP_DONE = true;
   window.authController = new AuthController();
   window.authController.init();
-});
+}
 
-// Also try immediate initialization in case DOMContentLoaded already fired
 if (document.readyState === 'loading') {
-  // Document still loading, wait for DOMContentLoaded
+  document.addEventListener('DOMContentLoaded', bootstrapMoremiAuth);
 } else {
-  // Document already loaded, initialize immediately
-  console.log('Document already loaded - creating and initializing auth controller immediately');
-  window.authController = new AuthController();
-  window.authController.init();
+  bootstrapMoremiAuth();
 }

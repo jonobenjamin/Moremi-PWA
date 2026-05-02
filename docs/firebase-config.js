@@ -3,6 +3,9 @@
  *
  * Set MOREMI_API_BASE to your Vercel URL. Paste firebaseConfig from Firebase Console → Project settings → Web app.
  * MOREMI_FIRESTORE_DATABASE_ID usually '(default)'; must match Vercel FIRESTORE_DATABASE_ID.
+ *
+ * Backend writes use the service account on Vercel — if env FIREBASE_SERVICE_ACCOUNT_KEY / project id
+ * still point at an old Firebase project, API data will go there no matter what this file says.
  */
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';

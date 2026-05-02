@@ -47,11 +47,11 @@
     }
   </script>
 
-  <!-- Firebase + auth (API URL + Firebase web keys: docs/firebase-config.js only) -->
-  <script type="module" src="firebase-config.js"></script>
-  <script type="module" src="auth-service.js"></script>
-  <script type="module" src="auth-ui.js"></script>
-  <script type="module" src="auth-controller.js"></script>
+  <!-- Module load order fixed; ?v= cracks HTTP caches when you bump after deploy -->
+  <script type="module" src="firebase-config.js?v=moremi-20260202"></script>
+  <script type="module" src="auth-service.js?v=moremi-20260202"></script>
+  <script type="module" src="auth-ui.js?v=moremi-20260202"></script>
+  <script type="module" src="auth-controller.js?v=moremi-20260202"></script>
   <script src="app-update.js"></script>
   <script src="pwa-install.js"></script>
 </head>
