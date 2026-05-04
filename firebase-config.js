@@ -33,12 +33,12 @@ const MOREMI_API_BASE = 'https://moremi-pwa.vercel.app';
 
 /** Fallback only if /api/client-firebase-config is unavailable — paste Web app keys for the SAME project as Vercel admin. */
 const fallbackFirebaseConfig = {
-  apiKey: 'PASTE_WEB_API_KEY',
-  authDomain: 'PASTE_PROJECT_ID.firebaseapp.com',
-  projectId: 'PASTE_PROJECT_ID',
-  storageBucket: 'PASTE_PROJECT_ID.firebasestorage.app',
-  messagingSenderId: 'PASTE_MESSAGING_SENDER_ID',
-  appId: 'PASTE_APP_ID'
+  apiKey: 'AIzaSyB4eTkmBRxQ7hNm0zNRuXa1xzqTkeNa4bM',
+  authDomain: 'moremi-app.firebaseapp.com',
+  projectId: 'moremi-app',
+  storageBucket: 'moremi-app.firebasestorage.app',
+  messagingSenderId: '478665220534',
+  appId: '1:478665220534:web:98b23a9c8fb77504232117'
 };
 
 window.__MOREMI_API_BASE__ = MOREMI_API_BASE;
