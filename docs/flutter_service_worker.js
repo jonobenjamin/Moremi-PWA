@@ -3,10 +3,10 @@ const MANIFEST = 'flutter-app-manifest';
 const TEMP = 'flutter-temp-cache';
 const CACHE_NAME = 'flutter-app-cache';
 
-const RESOURCES = {"flutter_bootstrap.js": "3f510a8a654ff24da028b519fd31a2cd",
+const RESOURCES = {"flutter_bootstrap.js": "0f87e434234dc7e0bf50800c5eb3ed93",
 "version.json": "b359803206879e1d7961102c7506ac90",
-"index.html": "cbb956f6720a915b5fedf77b41245137",
-"/": "cbb956f6720a915b5fedf77b41245137",
+"index.html": "deb98922564fc1088a12da5e88de21d0",
+"/": "deb98922564fc1088a12da5e88de21d0",
 "main.dart.js": "9a1d93ac54d7d6cb7d7c797c4456b443",
 "flutter.js": "24bc71911b75b5f8135c949e27a2984e",
 "favicon.png": "5dcef449791fa27946b3d35ad8803796",
@@ -15,7 +15,7 @@ const RESOURCES = {"flutter_bootstrap.js": "3f510a8a654ff24da028b519fd31a2cd",
 "icons/Icon-maskable-512.png": "f47886b0a99aeb0b6fc9ee305d3b4975",
 "icons/KPR_icon.png": "893ac2e2763c1ad90322d3bf662fc931",
 "icons/Icon-512.png": "f47886b0a99aeb0b6fc9ee305d3b4975",
-"manifest.json": "e7e1d6ba00518b730832bc6b0ebdb37f",
+"manifest.json": "ae06a295b5aa7f011bbddfa77c5e8fed",
 "assets/NOTICES": "32dfc05bfd9a30ced5c2a216016680f8",
 "assets/FontManifest.json": "dc3d03800ccca4601324923c0b1d6d57",
 "assets/AssetManifest.bin.json": "35b2bae5b46a517322b12ed524455555",
@@ -90,7 +90,7 @@ self.addEventListener("activate", function(event) {
       var origin = self.location.origin;
       for (var request of await contentCache.keys()) {
         var key = request.url.substring(origin.length + 1);
-        if (key.startsWith('KPR_PWA_TEST/')) key = key.substring(13);
+        if (key.startsWith('Moremi-PWA/')) key = key.substring(11);
       if (key == "") {
           key = "/";
         }
@@ -149,7 +149,7 @@ self.addEventListener("fetch", (event) => {
 
   var origin = self.location.origin;
   var key = event.request.url.substring(origin.length + 1);
-  const BASE_PATH = 'KPR_PWA_TEST';
+  const BASE_PATH = 'Moremi-PWA';
   // Normalize key for base path deployment (Flutter RESOURCES use paths without base)
   if (key.startsWith(BASE_PATH + '/')) {
     key = key.substring(BASE_PATH.length + 1);
@@ -202,7 +202,7 @@ self.addEventListener('message', (event) => {
 async function downloadOffline() {
   var resources = [];
   var origin = self.location.origin;
-  var basePath = 'KPR_PWA_TEST';
+  var basePath = 'Moremi-PWA';
   var contentCache = await caches.open(CACHE_NAME);
   var currentContent = {};
   for (var request of await contentCache.keys()) {
