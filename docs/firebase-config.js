@@ -1,13 +1,7 @@
 /**
- * Moremi PWA — API root + Firebase.
- *
- * 1) Set MOREMI_API_BASE to your Vercel URL (must match Flutter --dart-define from build-app.sh).
- * 2) Firebase Web config is fetched from the same backend (/api/client-firebase-config) so the PWA
- *    always matches the Firestore project used by FIREBASE_SERVICE_ACCOUNT_KEY on Vercel.
- *    On Vercel set: FIREBASE_WEB_API_KEY, FIREBASE_WEB_APP_ID, FIREBASE_WEB_MESSAGING_SENDER_ID
- *    (or FIREBASE_WEB_CONFIG_JSON). If fetch fails, edit fallback below.
- *
- * This module uses top-level await so auth scripts load only after Firebase is configured.
+ * Moremi PWA — API root + Firebase (browser).
+ * MOREMI_API_BASE: your Vercel API (must match ./build-app.sh --dart-define API_BASE_URL).
+ * Firebase initializes from embedded fallback; /api/client-firebase-config is optional enhancement.
  */
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
@@ -29,19 +23,19 @@ import {
   serverTimestamp
 } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 
-const MOREMI_API_BASE = 'https://moremi-pwa-backend.vercel.app';
+const MOREMI_API_BASE = 'https://moremi-pwa.vercel.app';
 
-/** Fallback only if /api/client-firebase-config is unavailable — paste Web app keys for the SAME project as Vercel admin. */
 const fallbackFirebaseConfig = {
-  apiKey: 'PASTE_WEB_API_KEY',
-  authDomain: 'PASTE_PROJECT_ID.firebaseapp.com',
-  projectId: 'PASTE_PROJECT_ID',
-  storageBucket: 'PASTE_PROJECT_ID.firebasestorage.app',
-  messagingSenderId: 'PASTE_MESSAGING_SENDER_ID',
-  appId: 'PASTE_APP_ID'
+  apiKey: 'AIzaSyB4eTkmBRxQ7hNm0zNRuXa1xzqTkeNa4bM',
+  authDomain: 'moremi-app.firebaseapp.com',
+  projectId: 'moremi-app',
+  storageBucket: 'moremi-app.firebasestorage.app',
+  messagingSenderId: '478665220534',
+  appId: '1:478665220534:web:98b23a9c8fb77504232117'
 };
 
 window.__MOREMI_API_BASE__ = MOREMI_API_BASE;
+window.__MOREMI_FIREBASE_BOOTSTRAP_ERROR__ = '';
 
 const firebaseExports = {
   signInWithCustomToken,
@@ -57,6 +51,7 @@ const firebaseExports = {
   serverTimestamp
 };
 
+let usedRemoteFirebaseConfig = false;
 let MOREMI_FIRESTORE_DATABASE_ID = '(default)';
 let firebaseConfig = { ...fallbackFirebaseConfig };
 
@@ -65,7 +60,7 @@ try {
   const r = await fetch(url, { cache: 'no-store' });
   if (r.ok) {
     const remote = await r.json();
-    if (remote && remote.projectId && remote.apiKey) {
+    if (remote && remote.projectId && remote.apiKey && !remote.error) {
       MOREMI_FIRESTORE_DATABASE_ID = remote.firestoreDatabaseId || '(default)';
       firebaseConfig = {
         apiKey: remote.apiKey,
@@ -75,31 +70,33 @@ try {
         messagingSenderId: remote.messagingSenderId,
         appId: remote.appId
       };
-      console.log(
-        '[Moremi] Firebase config from API — project:',
-        firebaseConfig.projectId,
-        'Firestore:',
-        MOREMI_FIRESTORE_DATABASE_ID
-      );
+      usedRemoteFirebaseConfig = true;
+      console.log('[Moremi] Using remote Firebase config');
+      console.log('[Moremi] Remote project:', firebaseConfig.projectId, 'Firestore:', MOREMI_FIRESTORE_DATABASE_ID);
+    } else {
+      console.warn('[Moremi] Remote Firebase config missing fields or returned error; using embedded fallback.', remote);
     }
   } else {
-    const errText = await r.text().catch(() => '');
-    console.warn('[Moremi] client-firebase-config HTTP', r.status, errText.slice(0, 200));
+    console.warn(`[Moremi] /api/client-firebase-config HTTP ${r.status}; using embedded fallback.`);
   }
 } catch (e) {
-  console.warn('[Moremi] client-firebase-config fetch failed:', e?.message || e);
+  console.warn('[Moremi] /api/client-firebase-config fetch failed; using embedded fallback.', e?.message || e);
+}
+
+if (!usedRemoteFirebaseConfig) {
+  console.log('[Moremi] Using fallback Firebase config');
 }
 
 const missingFirebase =
   !firebaseConfig.projectId ||
-  firebaseConfig.projectId.includes('PASTE') ||
   !firebaseConfig.apiKey ||
-  firebaseConfig.apiKey.includes('PASTE');
+  String(firebaseConfig.projectId).includes('PASTE') ||
+  String(firebaseConfig.apiKey).includes('PASTE');
 
 if (missingFirebase) {
-  console.error(
-    '[Moremi] No valid Firebase web config. Deploy backend with FIREBASE_WEB_* env vars, or paste keys in firebase-config.js fallback.'
-  );
+  window.__MOREMI_FIREBASE_BOOTSTRAP_ERROR__ =
+    'Firebase web config in docs/firebase-config.js is invalid or still has placeholder values.';
+  console.error('[Moremi] Firebase not configured:', window.__MOREMI_FIREBASE_BOOTSTRAP_ERROR__);
   window.__MOREMI_FIREBASE_READY__ = false;
   window.firebaseAuth = {
     auth: null,
@@ -110,11 +107,12 @@ if (missingFirebase) {
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const db = getFirestore(app, MOREMI_FIRESTORE_DATABASE_ID);
-
+  window.__MOREMI_FIREBASE_BOOTSTRAP_ERROR__ = '';
   window.__MOREMI_FIREBASE_READY__ = true;
   window.firebaseAuth = {
     auth,
     db,
     ...firebaseExports
   };
+  console.log('[Moremi] Firebase initialized', firebaseConfig.projectId, 'Firestore:', MOREMI_FIRESTORE_DATABASE_ID);
 }

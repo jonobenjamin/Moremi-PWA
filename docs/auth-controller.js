@@ -12,14 +12,25 @@ class AuthController {
     el.style.cssText =
       'position:fixed;inset:0;z-index:100000;background:#1a2744;color:#e8eef9;padding:22px;font-family:system-ui,sans-serif;overflow:auto;line-height:1.5;';
     el.innerHTML =
-      '<h1 style="margin:0 0 12px 0;font-size:1.35rem">Finish Firebase setup</h1>' +
-      '<p>Open <code style="background:#2a3f66;padding:3px 8px;border-radius:6px">docs/firebase-config.js</code> and set <strong>MOREMI_API_BASE</strong> to your Vercel URL. For Firebase, prefer: Vercel → <code>FIREBASE_WEB_API_KEY</code>, <code>FIREBASE_WEB_APP_ID</code>, <code>FIREBASE_WEB_MESSAGING_SENDER_ID</code> (same project as <code>FIREBASE_SERVICE_ACCOUNT_KEY</code>). The app loads config from <code>/api/client-firebase-config</code>.</p>' +
-      '<p style="margin:12px 0"><strong>Check:</strong> open <code style="background:#2a3f66;padding:2px 6px;border-radius:4px">YOUR_VERCEL_URL/health</code> — <code>firebase_project_id</code> must be your <strong>Moremi</strong> project, not the old one.</p>' +
+      '<h1 style="margin:0 0 12px 0;font-size:1.35rem">App can’t start — Firebase not configured</h1>' +
+      '<p style="opacity:0.95">The PWA needs your <strong>backend URL</strong> and a <strong>Firebase Web config</strong> so sign-in works. You are not being asked to “edit a random file”: this screen appears when the app could not get real Firebase keys.</p>' +
+      '<p><strong>Step 1 — API URL:</strong> In <code style="background:#2a3f66;padding:3px 8px;border-radius:6px">docs/firebase-config.js</code>, set <code>MOREMI_API_BASE</code> to the same base URL as your deployed Node API on Vercel (no trailing slash), e.g. <code>https://your-app.vercel.app</code>. That value is also used when you run <code>build-app.sh</code> so Flutter talks to the same API.</p>' +
+      '<p><strong>Step 2 — Firebase for the browser:</strong> The app uses the embedded Web config in <code>docs/firebase-config.js</code>. Optional: Vercel can serve overrides via <code>/api/client-firebase-config</code> if you set <code>FIREBASE_WEB_*</code> env vars there.</p>' +
+      '<p id="moremi-bootstrap-hint" style="margin:14px 0;padding:12px;background:#2a3f66;border-radius:8px;font-size:14px;white-space:pre-wrap"></p>' +
+      '<p style="margin:12px 0"><strong>Check:</strong> in a browser open <code style="background:#2a3f66;padding:2px 6px;border-radius:4px">YOUR_VERCEL_URL/health</code> and <code>YOUR_VERCEL_URL/api/client-firebase-config</code>. The second should return JSON with <code>apiKey</code> and <code>projectId</code>.</p>' +
       '<p style="opacity:0.9"><strong>Still seeing the old KPR map?</strong> You may be opening an old GitHub Pages URL, or a service worker was serving an old <code>main.dart.js</code>. This site no longer double-registers the worker — use the button below once, then hard refresh.</p>' +
       '<p><button type="button" id="moremi-hard-reset" style="padding:12px 18px;font-size:16px;border-radius:10px;border:none;background:#38bdf8;color:#0f172a;font-weight:600;cursor:pointer;margin-top:8px">Clear cached old app &amp; reload</button></p>' +
       '<p style="opacity:0.85;font-size:14px;margin-top:20px">After editing Firebase config on GitHub: commit and wait for Pages to rebuild, then reload.</p>';
 
     document.body.appendChild(el);
+
+    var hintEl = document.getElementById('moremi-bootstrap-hint');
+    if (hintEl && window.__MOREMI_FIREBASE_BOOTSTRAP_ERROR__) {
+      hintEl.textContent = 'Details: ' + window.__MOREMI_FIREBASE_BOOTSTRAP_ERROR__;
+    } else if (hintEl) {
+      hintEl.textContent =
+        'Details: (no message — try opening the browser console on this page, or verify docs/firebase-config.js loaded.)';
+    }
 
     document.getElementById('moremi-hard-reset').addEventListener('click', async function () {
       try {
@@ -111,7 +122,7 @@ class AuthController {
     if (window._flutter && window._flutter.loader) {
       const loadPromise = window._flutter.loader.load({
         serviceWorkerSettings: {
-          serviceWorkerVersion: "3102423941"
+          serviceWorkerVersion: "4153517524"
         }
       });
       if (loadPromise && typeof loadPromise.then === 'function') {
