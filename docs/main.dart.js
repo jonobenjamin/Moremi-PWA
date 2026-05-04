@@ -95521,11 +95521,11 @@ s=q}for(;;)switch(s){case 0:o.a6(new A.axI(o))
 q=3
 g=$.a5Z()
 s=6
-return A.I(g.Lb("assets/Moremi_boundary.geojson"),$async$oI)
+return A.I(g.Lb("Moremi_boundary.geojson"),$async$oI)
 case 6:n=b
 m=B.bp.nv(0,n,null)
 s=7
-return A.I(g.Lb("assets/Moremi_roads.geojson"),$async$oI)
+return A.I(g.Lb("Moremi_roads.geojson"),$async$oI)
 case 7:l=b
 k=B.bp.nv(0,l,null)
 f=A.aGU()
@@ -95535,7 +95535,7 @@ f.LJ(m)
 o.f.LJ(k)
 o.r=o.aku(k)
 s=8
-return A.I(g.Lb("assets/Camps.geojson"),$async$oI)
+return A.I(g.Lb("Camps.geojson"),$async$oI)
 case 8:j=b
 i=B.bp.nv(0,j,null)
 o.w=o.ako(i)
@@ -95706,7 +95706,7 @@ $1(a){return A.aN9(B.l,a.a,2)},
 $S:589}
 A.axN.prototype={
 $1(a){var s=null
-return new A.ff(a,new A.UA(24,24,B.CZ,new A.FK("assets/KPR.svg",s,s,s,s),s,s),24,24,B.h7)},
+return new A.ff(a,new A.UA(24,24,B.CZ,new A.FK("KPR.svg",s,s,s,s),s,s),24,24,B.h7)},
 $S:590}
 A.Tc.prototype={}
 A.Tb.prototype={
