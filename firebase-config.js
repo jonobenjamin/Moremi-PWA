@@ -29,7 +29,7 @@ import {
   serverTimestamp
 } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 
-const MOREMI_API_BASE = 'https://moremi-pwa.vercel.app/';
+const MOREMI_API_BASE = 'https://moremi-pwa.vercel.app';
 
 /** Fallback only if /api/client-firebase-config is unavailable — paste Web app keys for the SAME project as Vercel admin. */
 const fallbackFirebaseConfig = {
