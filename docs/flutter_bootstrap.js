@@ -38,10 +38,14 @@ _flutter.buildConfig = {"engineRevision":"db373eb85a06eb3d706af362a45d42d0972f4b
 
 _flutter.loader.load({
   serviceWorkerSettings: {
-    serviceWorkerVersion: "641460215"
+    serviceWorkerVersion: "2526547933"
   },
   onEntrypointLoaded: async function (engineInitializer) {
     var host = document.querySelector("#flutter-root") || document.body;
+    host.style.position = host.id === "flutter-root" ? "fixed" : "";
+    host.style.width = "100%";
+    host.style.height = "100%";
+    host.style.minHeight = "100dvh";
     var appRunner = await engineInitializer.initializeEngine({ hostElement: host });
     await appRunner.runApp();
   }
