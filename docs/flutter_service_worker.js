@@ -3,7 +3,7 @@ const MANIFEST = 'flutter-app-manifest';
 const TEMP = 'flutter-temp-cache';
 const CACHE_NAME = 'flutter-app-cache';
 
-const RESOURCES = {"flutter_bootstrap.js": "4ab08a2b86fb4a3181f092d1100c8674",
+const RESOURCES = {"flutter_bootstrap.js": "18d0932e4544cd6a20f85f692fa708b9",
 "version.json": "b359803206879e1d7961102c7506ac90",
 "index.html": "deb98922564fc1088a12da5e88de21d0",
 "/": "deb98922564fc1088a12da5e88de21d0",
@@ -241,3 +241,9 @@ function onlineFirst(event) {
     })
   );
 }
+
+
+// Moremi: take control of open tabs as soon as this worker activates
+self.addEventListener('activate', function (event) {
+  event.waitUntil(self.clients.claim());
+});

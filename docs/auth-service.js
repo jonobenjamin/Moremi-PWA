@@ -64,17 +64,19 @@ class AuthService {
   waitForFirebase() {
     return new Promise((resolve) => {
       const checkFirebase = () => {
+        if (window.__MOREMI_FIREBASE_READY__ === true) {
+          if (window.firebaseAuth && window.firebaseAuth.auth) {
+            this.auth = window.firebaseAuth.auth;
+            this.db = window.firebaseAuth.db;
+            resolve();
+            return;
+          }
+        }
         if (window.__MOREMI_FIREBASE_READY__ === false) {
           resolve();
           return;
         }
-        if (window.firebaseAuth && window.firebaseAuth.auth && window.firebaseAuth.db) {
-          this.auth = window.firebaseAuth.auth;
-          this.db = window.firebaseAuth.db;
-          resolve();
-        } else {
-          setTimeout(checkFirebase, 100);
-        }
+        setTimeout(checkFirebase, 50);
       };
       checkFirebase();
     });

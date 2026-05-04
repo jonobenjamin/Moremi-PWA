@@ -51,6 +51,18 @@ const firebaseExports = {
   serverTimestamp
 };
 
+function firebaseConfigIsComplete(cfg) {
+  return !!(
+    cfg &&
+    cfg.projectId &&
+    cfg.apiKey &&
+    cfg.appId &&
+    cfg.messagingSenderId &&
+    !String(cfg.projectId).includes('PASTE') &&
+    !String(cfg.apiKey).includes('PASTE')
+  );
+}
+
 let usedRemoteFirebaseConfig = false;
 let MOREMI_FIRESTORE_DATABASE_ID = '(default)';
 let firebaseConfig = { ...fallbackFirebaseConfig };
@@ -60,7 +72,7 @@ try {
   const r = await fetch(url, { cache: 'no-store' });
   if (r.ok) {
     const remote = await r.json();
-    if (remote && remote.projectId && remote.apiKey && !remote.error) {
+    if (firebaseConfigIsComplete(remote) && !remote.error) {
       MOREMI_FIRESTORE_DATABASE_ID = remote.firestoreDatabaseId || '(default)';
       firebaseConfig = {
         apiKey: remote.apiKey,
@@ -74,7 +86,7 @@ try {
       console.log('[Moremi] Using remote Firebase config');
       console.log('[Moremi] Remote project:', firebaseConfig.projectId, 'Firestore:', MOREMI_FIRESTORE_DATABASE_ID);
     } else {
-      console.warn('[Moremi] Remote Firebase config missing fields or returned error; using embedded fallback.', remote);
+      console.warn('[Moremi] Remote Firebase config incomplete or error; using embedded fallback.', remote);
     }
   } else {
     console.warn(`[Moremi] /api/client-firebase-config HTTP ${r.status}; using embedded fallback.`);
@@ -87,11 +99,7 @@ if (!usedRemoteFirebaseConfig) {
   console.log('[Moremi] Using fallback Firebase config');
 }
 
-const missingFirebase =
-  !firebaseConfig.projectId ||
-  !firebaseConfig.apiKey ||
-  String(firebaseConfig.projectId).includes('PASTE') ||
-  String(firebaseConfig.apiKey).includes('PASTE');
+const missingFirebase = !firebaseConfigIsComplete(firebaseConfig);
 
 if (missingFirebase) {
   window.__MOREMI_FIREBASE_BOOTSTRAP_ERROR__ =
