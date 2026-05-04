@@ -14,9 +14,10 @@ class AuthController {
     el.innerHTML =
       '<h1 style="margin:0 0 12px 0;font-size:1.35rem">Finish Firebase setup</h1>' +
       '<p>Open <code style="background:#2a3f66;padding:3px 8px;border-radius:6px">docs/firebase-config.js</code> in your project and replace every <strong>PASTE_…</strong> value with your <strong>Moremi</strong> web app keys (Firebase Console → Project settings).</p>' +
-      '<p style="margin:12px 0"><strong>Important:</strong> On Vercel, <code>FIREBASE_SERVICE_ACCOUNT_KEY</code> must be from the <strong>same</strong> Firebase project. If it is still the old account, API writes will keep going to the old database.</p>' +
+      '<p style="margin:12px 0"><strong>Important:</strong> On Vercel, <code>FIREBASE_SERVICE_ACCOUNT_KEY</code> must be from the <strong>same</strong> Firebase project. If it is still the old account, API writes will keep going to the old database. After changing Vercel env, redeploy the backend.</p>' +
+      '<p style="opacity:0.9"><strong>Still seeing the old KPR map?</strong> You may be opening an old GitHub Pages URL, or a service worker was serving an old <code>main.dart.js</code>. This site no longer double-registers the worker — use the button below once, then hard refresh.</p>' +
       '<p><button type="button" id="moremi-hard-reset" style="padding:12px 18px;font-size:16px;border-radius:10px;border:none;background:#38bdf8;color:#0f172a;font-weight:600;cursor:pointer;margin-top:8px">Clear cached old app &amp; reload</button></p>' +
-      '<p style="opacity:0.85;font-size:14px;margin-top:20px">If you already updated files but still see the old map screen, the service worker was holding an old <code>main.dart.js</code>. Use the button above once.</p>';
+      '<p style="opacity:0.85;font-size:14px;margin-top:20px">After editing Firebase config on GitHub: commit and wait for Pages to rebuild, then reload.</p>';
 
     document.body.appendChild(el);
 
