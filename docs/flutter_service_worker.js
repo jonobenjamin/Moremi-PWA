@@ -3,7 +3,7 @@ const MANIFEST = 'flutter-app-manifest';
 const TEMP = 'flutter-temp-cache';
 const CACHE_NAME = 'flutter-app-cache';
 
-const RESOURCES = {"flutter_bootstrap.js": "d5af2cac143072967be81dc9ced69723",
+const RESOURCES = {"flutter_bootstrap.js": "08b97735f0fec967b93a757397aefc6e",
 "version.json": "b359803206879e1d7961102c7506ac90",
 "index.html": "deb98922564fc1088a12da5e88de21d0",
 "/": "deb98922564fc1088a12da5e88de21d0",
@@ -51,20 +51,28 @@ const CORE = ["main.dart.js",
 "assets/AssetManifest.bin.json",
 "assets/FontManifest.json"];
 
+const MOREMI_SW_BASE = 'Moremi-PWA';
+function moremiPublicUrl(resourceKey) {
+  var k = resourceKey === '/' || resourceKey === '' ? '' : String(resourceKey).replace(/^\//, '');
+  return self.location.origin + '/' + MOREMI_SW_BASE + '/' + k;
+}
+
+
 // During install, the TEMP cache is populated with the application shell files.
 self.addEventListener("install", (event) => {
   self.skipWaiting();
   return event.waitUntil(
     caches.open(TEMP).then(function (cache) {
-      return Promise.all(
+      return Promise.allSettled(
         CORE.map(function (value) {
-          var req = new Request(value, { cache: "reload" });
+          var url = moremiPublicUrl(value);
+          var req = new Request(url, { cache: 'reload' });
           return fetch(req)
             .then(function (res) {
               if (res && res.ok) return cache.put(req, res);
             })
             .catch(function (e) {
-              console.warn("[flutter_service_worker] install skip:", value, e);
+              console.warn('[flutter_service_worker] install skip:', url, e);
             });
         })
       );
@@ -139,7 +147,6 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Cache OSM tiles for offline use (cache when online, serve from cache when offline)
   if (event.request.url.startsWith('https://tile.openstreetmap.org/')) {
     event.respondWith(
       fetch(event.request).then(function(response) {
@@ -159,11 +166,6 @@ self.addEventListener("fetch", (event) => {
 
   var origin = self.location.origin;
   var key = event.request.url.substring(origin.length + 1);
-  const BASE_PATH = 'Moremi-PWA';
-  // Normalize key for base path deployment (Flutter RESOURCES use paths without base)
-  if (key.startsWith(BASE_PATH + '/')) {
-    key = key.substring(BASE_PATH.length + 1);
-  }
   // Redirect URLs to the index.html
   if (key.indexOf('?v=') != -1) {
     key = key.split('?v=')[0];
@@ -211,13 +213,10 @@ self.addEventListener('message', (event) => {
 // and populate them.
 async function downloadOffline() {
   var resources = [];
-  var origin = self.location.origin;
-  var basePath = 'Moremi-PWA';
   var contentCache = await caches.open(CACHE_NAME);
   var currentContent = {};
   for (var request of await contentCache.keys()) {
     var key = request.url.substring(origin.length + 1);
-    if (key.startsWith(basePath + '/')) key = key.substring(basePath.length + 1);
     if (key == "") {
       key = "/";
     }
@@ -228,11 +227,17 @@ async function downloadOffline() {
       resources.push(resourceKey);
     }
   }
-  return Promise.all(
-    resources.map(function (url) {
-      return contentCache.add(url).catch(function (e) {
-        console.warn("[flutter_service_worker] offline prefetch skip:", url, e);
-      });
+  return Promise.allSettled(
+    resources.map(function (resourceKey) {
+      var abs = moremiPublicUrl(resourceKey);
+      var reqPut = new Request(abs);
+      return fetch(abs, { cache: 'reload' })
+        .then(function (res) {
+          if (res && res.ok) return contentCache.put(reqPut, res.clone());
+        })
+        .catch(function (e) {
+          console.warn('[flutter_service_worker] offline prefetch skip:', abs, e);
+        });
     })
   );
 }
