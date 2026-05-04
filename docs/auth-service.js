@@ -21,22 +21,13 @@ class AuthService {
     this.recaptchaVerifier = null;
     this.auth = null;
     this.db = null;
-    this.init();
+    this._authListenerBound = false;
+    void this.init();
   }
 
-  async init() {
-    // Wait for Firebase to be ready
-    await this.waitForFirebase();
-
-    // Get Firebase instances from global
-    this.auth = window.firebaseAuth?.auth;
-    this.db = window.firebaseAuth?.db;
-
-    if (!this.auth) {
-      console.error('Firebase auth not available');
-      return;
-    }
-
+  bindAuthStateListener() {
+    if (this._authListenerBound || !this.auth) return;
+    this._authListenerBound = true;
     onAuthStateChanged(this.auth, async (user) => {
       this.currentUser = user;
       if (user) {
@@ -61,18 +52,67 @@ class AuthService {
     });
   }
 
+  tryBindFromWindow() {
+    const a = window.firebaseAuth?.auth;
+    if (!a) return false;
+    this.auth = a;
+    this.db = window.firebaseAuth?.db ?? null;
+    this.bindAuthStateListener();
+    return true;
+  }
+
+  pollBindAuth(maxAttempts) {
+    let n = 0;
+    const step = () => {
+      if (this._authListenerBound) return;
+      this.tryBindFromWindow();
+      n++;
+      if (!this._authListenerBound && n < maxAttempts) {
+        setTimeout(step, 50);
+      }
+    };
+    step();
+  }
+
+  async init() {
+    await this.waitForFirebase();
+    this.tryBindFromWindow();
+    this.pollBindAuth(400);
+    if (!this.auth) {
+      console.warn('[Moremi] Firebase Auth not bound yet; will bind when available (UI is not blocked).');
+    }
+  }
+
+  /**
+   * Call before operations that need this.auth. Does not block the rest of the app.
+   */
+  async ensureAuthClient() {
+    if (this.auth) return;
+    this.tryBindFromWindow();
+    for (let i = 0; i < 120; i++) {
+      if (this.auth) return;
+      await new Promise((r) => setTimeout(r, 50));
+      this.tryBindFromWindow();
+    }
+    throw new Error('Firebase Auth is still starting. Please wait a moment and try again.');
+  }
+
   waitForFirebase() {
     return new Promise((resolve) => {
+      let attempts = 0;
+      const max = 400;
       const checkFirebase = () => {
-        if (window.__MOREMI_FIREBASE_READY__ === true) {
-          if (window.firebaseAuth && window.firebaseAuth.auth) {
-            this.auth = window.firebaseAuth.auth;
-            this.db = window.firebaseAuth.db;
-            resolve();
-            return;
-          }
+        if (window.__MOREMI_FIREBASE_READY__ === true && window.firebaseAuth?.auth) {
+          resolve();
+          return;
         }
         if (window.__MOREMI_FIREBASE_READY__ === false) {
+          resolve();
+          return;
+        }
+        attempts++;
+        if (attempts >= max) {
+          console.warn('[Moremi] Firebase bootstrap slow; continuing without blocking UI.');
           resolve();
           return;
         }
@@ -95,6 +135,7 @@ class AuthService {
     const apiBase = this.apiBase();
     console.log('Password login for:', username);
     if (!apiBase) throw new Error('API URL not set — edit docs/firebase-config.js');
+    await this.ensureAuthClient();
     const response = await fetch(`${apiBase}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -119,6 +160,7 @@ class AuthService {
   async registerAccount({ username, password, email, phone, displayName }) {
     const apiBase = this.apiBase();
     if (!apiBase) throw new Error('API URL not set — edit docs/firebase-config.js');
+    await this.ensureAuthClient();
     const body = {
       username: String(username).trim(),
       password,
@@ -216,6 +258,7 @@ class AuthService {
       const data = await response.json();
       console.log('PIN verification success, received custom token:', !!data.customToken);
 
+      await this.ensureAuthClient();
       // Sign in with custom token
       console.log('Signing in with custom token...');
       const result = await signInWithCustomToken(this.auth, data.customToken);
@@ -251,6 +294,7 @@ class AuthService {
   async requestPhoneOtp(phoneNumber, name) {
     try {
       console.log('Requesting phone OTP for:', phoneNumber);
+      await this.ensureAuthClient();
 
       // Validate phone number format
       const phoneRegex = /^\+[1-9]\d{1,14}$/;
@@ -531,7 +575,14 @@ class AuthService {
   }
 
   async signOut() {
-    await signOut(this.auth);
+    try {
+      await this.ensureAuthClient();
+    } catch (e) {
+      /* no auth client yet — still clear local session */
+    }
+    if (this.auth) {
+      await signOut(this.auth);
+    }
     this.currentUser = null;
     localStorage.removeItem('userAuthenticated');
     localStorage.removeItem('authenticatedUserName');
