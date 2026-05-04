@@ -3,7 +3,7 @@ const MANIFEST = 'flutter-app-manifest';
 const TEMP = 'flutter-temp-cache';
 const CACHE_NAME = 'flutter-app-cache';
 
-const RESOURCES = {"flutter_bootstrap.js": "18d0932e4544cd6a20f85f692fa708b9",
+const RESOURCES = {"flutter_bootstrap.js": "0c4d65469d155b9563f3ddb9afae8830",
 "version.json": "b359803206879e1d7961102c7506ac90",
 "index.html": "deb98922564fc1088a12da5e88de21d0",
 "/": "deb98922564fc1088a12da5e88de21d0",
@@ -58,13 +58,13 @@ self.addEventListener("install", (event) => {
     caches.open(TEMP).then(function (cache) {
       return Promise.all(
         CORE.map(function (value) {
-          var req = new Request(value, { cache: 'reload' });
+          var req = new Request(value, { cache: "reload" });
           return fetch(req)
             .then(function (res) {
               if (res && res.ok) return cache.put(req, res);
             })
             .catch(function (e) {
-              console.warn('[flutter_service_worker] install skip:', value, e);
+              console.warn("[flutter_service_worker] install skip:", value, e);
             });
         })
       );
