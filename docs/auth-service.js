@@ -32,18 +32,21 @@ class AuthService {
       this.currentUser = user;
       if (user) {
         console.log('User signed in:', user.uid);
-        this.updateUserLastLogin(user.uid);
+        void this.updateUserLastLogin(user.uid);
         try {
           const token = await user.getIdToken();
           localStorage.setItem('firebaseIdToken', token);
           localStorage.setItem('firebaseUid', user.uid);
-          user.getIdTokenResult().then((r) => {
+        } catch (e) {
+          console.warn('[Moremi] Token not stored yet (transient); auth session is active', e);
+        }
+        user
+          .getIdTokenResult()
+          .then((r) => {
             const u = r.claims.username;
             if (u) localStorage.setItem('authenticatedUsername', String(u));
-          }).catch(() => {});
-        } catch (e) {
-          console.error('id token store failed', e);
-        }
+          })
+          .catch(() => {});
       } else {
         console.log('User signed out');
         localStorage.removeItem('firebaseIdToken');
@@ -131,6 +134,26 @@ class AuthService {
     return String(b).replace(/\/$/, '');
   }
 
+  /** Retries once on transient Identity Toolkit / fetch errors. */
+  async signInWithCustomTokenResilient(customToken) {
+    const attempt = () => signInWithCustomToken(this.auth, customToken);
+    try {
+      return await attempt();
+    } catch (e) {
+      const retryable =
+        e &&
+        (e.code === 'auth/network-request-failed' ||
+          e.code === 'auth/internal-error' ||
+          e.code === 'auth/timeout' ||
+          /network|fetch|Failed to fetch|identitytoolkit/i.test(String(e.message || '')));
+      if (retryable) {
+        await new Promise((r) => setTimeout(r, 450));
+        return await attempt();
+      }
+      throw e;
+    }
+  }
+
   async loginWithPassword(username, password) {
     const apiBase = this.apiBase();
     console.log('Password login for:', username);
@@ -148,7 +171,7 @@ class AuthService {
     if (!data.customToken) {
       throw new Error('Invalid server response');
     }
-    const result = await signInWithCustomToken(this.auth, data.customToken);
+    const result = await this.signInWithCustomTokenResilient(data.customToken);
     localStorage.setItem('userAuthenticated', 'true');
     localStorage.setItem('authenticatedUserName', data.name || '');
     if (data.username) {
@@ -181,7 +204,7 @@ class AuthService {
     if (!data.customToken) {
       throw new Error('Invalid server response');
     }
-    const result = await signInWithCustomToken(this.auth, data.customToken);
+    const result = await this.signInWithCustomTokenResilient(data.customToken);
     localStorage.setItem('userAuthenticated', 'true');
     localStorage.setItem('authenticatedUserName', data.name || '');
     if (data.username) {
@@ -261,7 +284,7 @@ class AuthService {
       await this.ensureAuthClient();
       // Sign in with custom token
       console.log('Signing in with custom token...');
-      const result = await signInWithCustomToken(this.auth, data.customToken);
+      const result = await this.signInWithCustomTokenResilient(data.customToken);
       console.log('Firebase sign in successful for user:', result.user.uid);
 
       // Create/update user document
@@ -270,9 +293,8 @@ class AuthService {
         await this.createOrUpdateUser(result.user, { email, name: data.name });
         console.log('User document created/updated successfully');
       } catch (error) {
-        console.error('❌ CRITICAL: Failed to create user document:', error);
-        console.error('❌ Error details:', error.code, error.message);
-        // Don't throw here - continue with authentication even if user doc fails
+        console.warn('User document update after PIN (non-blocking):', error);
+        // Continue — login is successful if custom token sign-in succeeded
       }
 
       // Store authentication state for offline use
@@ -495,6 +517,7 @@ class AuthService {
   }
 
   async updateUserLastLogin(uid) {
+    if (!this.db || !uid) return;
     try {
       await setDoc(
         doc(this.db, 'users', uid),
@@ -502,7 +525,7 @@ class AuthService {
         { merge: true }
       );
     } catch (error) {
-      console.error('Failed to update last login:', error);
+      console.warn('Failed to update last login:', error);
     }
   }
 

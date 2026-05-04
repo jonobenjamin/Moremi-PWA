@@ -5,7 +5,7 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Moremi wildlife sightings">
 
   <!-- iOS meta tags & icons -->
@@ -22,12 +22,14 @@
 
   <!-- Flutter Web needs a sized root; without this the canvas collapses to a thin strip on mobile/PWA -->
   <style>
-    html {
+    html, body {
       height: 100%;
+      margin: 0;
+    }
+    html {
       width: 100%;
     }
     body {
-      margin: 0;
       padding: 0;
       width: 100%;
       height: 100%;
@@ -73,10 +75,10 @@
   <!-- Service worker: only flutter_bootstrap.js registers it (with ?v=...) — a second register here kept stale main.dart.js on many devices. -->
 
   <!-- Module load order fixed; ?v= cracks HTTP caches when you bump after deploy -->
-  <script type="module" src="firebase-config.js?v=moremi-startup-flow"></script>
-  <script type="module" src="auth-service.js?v=moremi-startup-flow"></script>
-  <script type="module" src="auth-ui.js?v=moremi-startup-flow"></script>
-  <script type="module" src="auth-controller.js?v=moremi-startup-flow"></script>
+  <script type="module" src="firebase-config.js?v=moremi-sw-layout-auth-202602"></script>
+  <script type="module" src="auth-service.js?v=moremi-sw-layout-auth-202602"></script>
+  <script type="module" src="auth-ui.js?v=moremi-sw-layout-auth-202602"></script>
+  <script type="module" src="auth-controller.js?v=moremi-sw-layout-auth-202602"></script>
   <script src="app-update.js"></script>
   <script src="pwa-install.js"></script>
 </head>

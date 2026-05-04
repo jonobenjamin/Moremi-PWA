@@ -55,9 +55,19 @@ const CORE = ["main.dart.js",
 self.addEventListener("install", (event) => {
   self.skipWaiting();
   return event.waitUntil(
-    caches.open(TEMP).then((cache) => {
-      return cache.addAll(
-        CORE.map((value) => new Request(value, {'cache': 'reload'})));
+    caches.open(TEMP).then(function (cache) {
+      return Promise.all(
+        CORE.map(function (value) {
+          var req = new Request(value, { cache: 'reload' });
+          return fetch(req)
+            .then(function (res) {
+              if (res && res.ok) return cache.put(req, res);
+            })
+            .catch(function (e) {
+              console.warn('[flutter_service_worker] install skip:', value, e);
+            });
+        })
+      );
     })
   );
 });
@@ -218,7 +228,13 @@ async function downloadOffline() {
       resources.push(resourceKey);
     }
   }
-  return contentCache.addAll(resources);
+  return Promise.all(
+    resources.map(function (url) {
+      return contentCache.add(url).catch(function (e) {
+        console.warn("[flutter_service_worker] offline prefetch skip:", url, e);
+      });
+    })
+  );
 }
 // Attempt to download the resource online before falling back to
 // the offline cache.
