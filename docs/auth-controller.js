@@ -46,17 +46,9 @@ class AuthController {
     const overlay = document.getElementById('auth-overlay');
     if (overlay) overlay.style.display = 'none';
 
-    if (window._flutter?.loader) {
-      const loadPromise = window._flutter.loader.load({
-        serviceWorkerSettings: {
-          serviceWorkerVersion: '921946571'
-        }
-      });
-
-      if (loadPromise?.then) {
-        loadPromise.then(() => this.triggerOfflinePrefetch()).catch(() => {});
-      }
-    }
+    // Flutter is started once from flutter_bootstrap.js (correct serviceWorkerVersion).
+    // Do not call loader.load() again — it caused SW/hash mismatch and duplicate init.
+    this.triggerOfflinePrefetch();
   }
 
   triggerOfflinePrefetch() {
