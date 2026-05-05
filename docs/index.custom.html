@@ -17,7 +17,7 @@
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="icons/Icon-192.png"/>
 
-  <title>Moremi wildlife</title>
+  <title>Moremi Wildlife Sightings</title>
   <link rel="manifest" href="manifest.json">
 
   <style>
@@ -84,6 +84,15 @@
   </script>
 
   <script>
+    function moremiLsPrefix() {
+      try {
+        var path = window.location.pathname || '/';
+        var seg = path.replace(/^\/+|\/+$/g, '').split('/').filter(function (x) { return x; })[0] || 'app';
+        return 'moremi:' + seg + ':';
+      } catch (e) {
+        return 'moremi:app:';
+      }
+    }
     function moremiSignOut() {
       if (window.authService && typeof window.authService.signOut === 'function') {
         return window.authService.signOut().then(function () {
@@ -93,11 +102,10 @@
         });
       }
       try {
-        localStorage.removeItem('firebaseIdToken');
-        localStorage.removeItem('firebaseUid');
-        localStorage.removeItem('userAuthenticated');
-        localStorage.removeItem('authenticatedUserName');
-        localStorage.removeItem('authenticatedUsername');
+        var p = moremiLsPrefix();
+        ['firebaseIdToken', 'firebaseUid', 'userAuthenticated', 'authenticatedUserName', 'authenticatedUsername'].forEach(function (k) {
+          localStorage.removeItem(p + k);
+        });
       } catch (e) {}
       window.location.reload();
     }
@@ -105,10 +113,10 @@
 
   <!-- Service worker: only flutter_bootstrap.js registers it (with ?v=...) -->
 
-  <script type="module" src="firebase-config.js?v=moremi-body-mount-202605c"></script>
-  <script type="module" src="auth-service.js?v=moremi-body-mount-202605c"></script>
-  <script type="module" src="auth-ui.js?v=moremi-body-mount-202605c"></script>
-  <script type="module" src="auth-controller.js?v=moremi-body-mount-202605c"></script>
+  <script type="module" src="firebase-config.js?v=moremi-authscoped-202605d"></script>
+  <script type="module" src="auth-service.js?v=moremi-authscoped-202605d"></script>
+  <script type="module" src="auth-ui.js?v=moremi-authscoped-202605d"></script>
+  <script type="module" src="auth-controller.js?v=moremi-authscoped-202605d"></script>
   <script src="app-update.js"></script>
   <script src="pwa-install.js"></script>
 </head>

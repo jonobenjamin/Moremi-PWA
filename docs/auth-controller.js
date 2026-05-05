@@ -1,4 +1,6 @@
 // Authentication Controller — startup must not block on Firebase (login shows immediately).
+import { mlsGet, moremiMigrateLegacyStorage } from './moremi-storage.js';
+
 class AuthController {
   constructor() {
     this.flutterStarted = false;
@@ -17,9 +19,14 @@ class AuthController {
   async init() {
     console.log('Auth controller initializing...');
     this.removeStaleBlockingLayers();
+    moremiMigrateLegacyStorage();
 
-    const storedAuth = localStorage.getItem('userAuthenticated');
-    const storedUserName = localStorage.getItem('authenticatedUserName');
+    await window.authService?.clearStaleFirebaseSession?.().catch((e) => {
+      console.warn('[Moremi] clearStaleFirebaseSession:', e);
+    });
+
+    const storedAuth = mlsGet('userAuthenticated');
+    const storedUserName = mlsGet('authenticatedUserName');
 
     if (storedAuth === 'true' && storedUserName) {
       console.log('Restoring session for:', storedUserName);
@@ -65,7 +72,7 @@ function bootstrapMoremiAuth() {
   window.__MOREMI_AUTH_BOOTSTRAP_DONE = true;
 
   window.authController = new AuthController();
-  window.authController.init();
+  void window.authController.init();
 }
 
 if (document.readyState === 'loading') {

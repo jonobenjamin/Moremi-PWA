@@ -1,4 +1,11 @@
 // Authentication Service
+import {
+  mlsGet,
+  mlsSet,
+  mlsRemove,
+  mlsClearAuthKeys,
+  moremiMigrateLegacyStorage
+} from './moremi-storage.js';
 // Import Firebase functions directly
 import {
   signInWithCustomToken,
@@ -35,8 +42,8 @@ class AuthService {
         void this.updateUserLastLogin(user.uid);
         try {
           const token = await user.getIdToken();
-          localStorage.setItem('firebaseIdToken', token);
-          localStorage.setItem('firebaseUid', user.uid);
+          mlsSet('firebaseIdToken', token);
+          mlsSet('firebaseUid', user.uid);
         } catch (e) {
           console.warn('[Moremi] Token not stored yet (transient); auth session is active', e);
         }
@@ -44,13 +51,13 @@ class AuthService {
           .getIdTokenResult()
           .then((r) => {
             const u = r.claims.username;
-            if (u) localStorage.setItem('authenticatedUsername', String(u));
+            if (u) mlsSet('authenticatedUsername', String(u));
           })
           .catch(() => {});
       } else {
         console.log('User signed out');
-        localStorage.removeItem('firebaseIdToken');
-        localStorage.removeItem('firebaseUid');
+        mlsRemove('firebaseIdToken');
+        mlsRemove('firebaseUid');
       }
     });
   }
@@ -101,6 +108,7 @@ class AuthService {
   }
 
   waitForFirebase() {
+    moremiMigrateLegacyStorage();
     return new Promise((resolve) => {
       let attempts = 0;
       const max = 400;
@@ -172,10 +180,10 @@ class AuthService {
       throw new Error('Invalid server response');
     }
     const result = await this.signInWithCustomTokenResilient(data.customToken);
-    localStorage.setItem('userAuthenticated', 'true');
-    localStorage.setItem('authenticatedUserName', data.name || '');
+    mlsSet('userAuthenticated', 'true');
+    mlsSet('authenticatedUserName', data.name || '');
     if (data.username) {
-      localStorage.setItem('authenticatedUsername', data.username);
+      mlsSet('authenticatedUsername', data.username);
     }
     return result;
   }
@@ -205,10 +213,10 @@ class AuthService {
       throw new Error('Invalid server response');
     }
     const result = await this.signInWithCustomTokenResilient(data.customToken);
-    localStorage.setItem('userAuthenticated', 'true');
-    localStorage.setItem('authenticatedUserName', data.name || '');
+    mlsSet('userAuthenticated', 'true');
+    mlsSet('authenticatedUserName', data.name || '');
     if (data.username) {
-      localStorage.setItem('authenticatedUsername', data.username);
+      mlsSet('authenticatedUsername', data.username);
     }
     try {
       await this.createOrUpdateUser(result.user, {
@@ -299,8 +307,8 @@ class AuthService {
 
       // Store authentication state for offline use
       console.log('DEBUG: Setting localStorage - userAuthenticated=true, authenticatedUserName=', data.name);
-      localStorage.setItem('userAuthenticated', 'true');
-      localStorage.setItem('authenticatedUserName', data.name);
+      mlsSet('userAuthenticated', 'true');
+      mlsSet('authenticatedUserName', data.name);
 
       // Auth controller will automatically detect the sign-in via onAuthStateChanged listener
       console.log('PIN verification complete - auth state listener will handle the rest');
@@ -402,8 +410,8 @@ class AuthService {
 
         // Store authentication state for offline use
         console.log('DEBUG: Setting localStorage for phone auth - userAuthenticated=true, authenticatedUserName=', pendingUserData.name);
-        localStorage.setItem('userAuthenticated', 'true');
-        localStorage.setItem('authenticatedUserName', pendingUserData.name);
+        mlsSet('userAuthenticated', 'true');
+        mlsSet('authenticatedUserName', pendingUserData.name);
       }
 
       return { success: true, user: result.user };
@@ -607,9 +615,29 @@ class AuthService {
       await signOut(this.auth);
     }
     this.currentUser = null;
-    localStorage.removeItem('userAuthenticated');
-    localStorage.removeItem('authenticatedUserName');
-    localStorage.removeItem('authenticatedUsername');
+    mlsClearAuthKeys();
+  }
+
+  /**
+   * Same-origin: Firebase can restore a user without our scoped LS keys (e.g. another GH Pages app).
+   * Clear Firebase when we do not have an app session for this path.
+   */
+  async clearStaleFirebaseSession() {
+    try {
+      await this.ensureAuthClient();
+    } catch (e) {
+      return;
+    }
+    if (!this.auth) return;
+    if (this.auth.currentUser && mlsGet('userAuthenticated') !== 'true') {
+      try {
+        await signOut(this.auth);
+      } catch (e) {
+        console.warn('[Moremi] signOut (stale session):', e);
+      }
+      this.currentUser = null;
+      mlsClearAuthKeys();
+    }
   }
 
   isAuthenticated() {
