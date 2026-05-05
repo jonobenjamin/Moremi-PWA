@@ -1,14 +1,15 @@
 {
 "type": "FeatureCollection",
-"name": "Camps",
+"name": "Camps1",
 "crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
 "features": [
-{ "type": "Feature", "properties": { "Camps": "Tau Camp" }, "geometry": { "type": "Point", "coordinates": [ 23.512176837991223, -19.118280831790283 ] } },
-{ "type": "Feature", "properties": { "Camps": "Tuludi Camp" }, "geometry": { "type": "Point", "coordinates": [ 23.567553241833846, -19.137904097316813 ] } },
-{ "type": "Feature", "properties": { "Camps": "Sable Alley Camp" }, "geometry": { "type": "Point", "coordinates": [ 23.661513996663984, -19.127895793661974 ] } },
-{ "type": "Feature", "properties": { "Camps": "Little Sable Camp" }, "geometry": { "type": "Point", "coordinates": [ 23.695091925418971, -19.152288147495582 ] } },
-{ "type": "Feature", "properties": { "Camps": "Hyena Pan" }, "geometry": { "type": "Point", "coordinates": [ 23.768931248512644, -18.998579635644123 ] } },
-{ "type": "Feature", "properties": { "Camps": "Elephant Pools Camp" }, "geometry": { "type": "Point", "coordinates": [ 23.850246333286265, -19.022726903452565 ] } },
-{ "type": "Feature", "properties": { "Camps": "Sky Beds" }, "geometry": { "type": "Point", "coordinates": [ 23.845968106741189, -18.972686302768135 ] } }
+{ "type": "Feature", "properties": { "Camps": "Camp Moremi", "Type": "Lodge", "Operator": "Desert & Delta", "Link": "https://desertdelta.com/camps/camp-moremi/" }, "geometry": { "type": "Point", "coordinates": [ 23.409477259791814, -19.189926805829135 ] } },
+{ "type": "Feature", "properties": { "Camps": "Camp Xakanaxa", "Type": "Lodge", "Operator": "Desert & Delta", "Link": "https://desertdelta.com/camps/camp-xakanaxa/" }, "geometry": { "type": "Point", "coordinates": [ 23.408960731997478, -19.185293268729716 ] } },
+{ "type": "Feature", "properties": { "Camps": "Xakanaxa Camp Site", "Type": "Campsite", "Operator": "Kwalate Safaries", "Link": "https://www.kwalatesafaris.com/" }, "geometry": { "type": "Point", "coordinates": [ 23.415722555943088, -19.182685013350948 ] } },
+{ "type": "Feature", "properties": { "Camps": "South Gate", "Type": "Entrance", "Operator": null, "Link": null }, "geometry": { "type": "Point", "coordinates": [ 23.644264184627669, -19.425742544319796 ] } },
+{ "type": "Feature", "properties": { "Camps": "South Gate Campsite", "Type": "Campsite", "Operator": null, "Link": "https://www.kwalatesafaris.com/maqwee.html" }, "geometry": { "type": "Point", "coordinates": [ 23.644482667994623, -19.424982748525114 ] } },
+{ "type": "Feature", "properties": { "Camps": "Third Bridge", "Type": "Campsite", "Operator": "Xomae Group", "Link": "https://www.xomaesites.com/camping/10-third-bridge.html" }, "geometry": { "type": "Point", "coordinates": [ 23.354212807669722, -19.238149492283867 ] } },
+{ "type": "Feature", "properties": { "Camps": "North Gate", "Type": "Entrance", "Operator": null, "Link": null }, "geometry": { "type": "Point", "coordinates": [ 23.751377902649697, -19.173380482826175 ] } },
+{ "type": "Feature", "properties": { "Camps": "North Gate", "Type": "Campsite", "Operator": null, "Link": null }, "geometry": { "type": "Point", "coordinates": [ 23.752585761119146, -19.172815101186043 ] } }
 ]
 }
