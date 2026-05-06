@@ -643,6 +643,46 @@ class AuthService {
   isAuthenticated() {
     return !!this.currentUser;
   }
+
+  /**
+   * Wait until Firebase restores persistence or gives up (installed PWA / stale LS flags).
+   */
+  waitForFirebaseUser(maxMs = 4000) {
+    return new Promise((resolve) => {
+      (async () => {
+        try {
+          await this.ensureAuthClient();
+        } catch (e) {
+          resolve(false);
+          return;
+        }
+        if (!this.auth) {
+          resolve(false);
+          return;
+        }
+        if (this.auth.currentUser) {
+          resolve(true);
+          return;
+        }
+        let settled = false;
+        const finish = (v) => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(t);
+          try {
+            unsub();
+          } catch (e) {
+            /* ignore */
+          }
+          resolve(v);
+        };
+        const t = setTimeout(() => finish(false), maxMs);
+        const unsub = onAuthStateChanged(this.auth, (user) => {
+          if (user) finish(true);
+        });
+      })();
+    });
+  }
 }
 
 // Create global instance

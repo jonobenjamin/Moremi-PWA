@@ -1,5 +1,5 @@
 // Authentication Controller — startup must not block on Firebase (login shows immediately).
-import { mlsGet, moremiMigrateLegacyStorage } from './moremi-storage.js';
+import { mlsGet, moremiMigrateLegacyStorage, mlsClearAuthKeys } from './moremi-storage.js';
 
 class AuthController {
   constructor() {
@@ -29,8 +29,21 @@ class AuthController {
     const storedUserName = mlsGet('authenticatedUserName');
 
     if (storedAuth === 'true' && storedUserName) {
-      console.log('Restoring session for:', storedUserName);
-      this.startFlutterApp();
+      const firebaseOk = await window.authService?.waitForFirebaseUser?.(4000);
+      if (firebaseOk) {
+        console.log('Restoring session for:', storedUserName);
+        this.startFlutterApp();
+        return;
+      }
+      console.warn(
+        '[Moremi] Saved login flags but no Firebase user (session expired or stale). Showing sign-in.'
+      );
+      if (window.authService) {
+        await window.authService.signOut().catch(() => {});
+      } else {
+        mlsClearAuthKeys();
+      }
+      window.authUI?.showLoginTypeSelection?.();
       return;
     }
 

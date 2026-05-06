@@ -42,44 +42,4 @@ async function forceAppUpdate() {
   }
 }
 
-function createUpdateButton() {
-  if (document.getElementById('update-app-btn')) return;
-
-  const btn = document.createElement('button');
-  btn.id = 'update-app-btn';
-  btn.type = 'button';
-  btn.textContent = 'Update app';
-  btn.title = 'Check for updates and reload with latest version';
-  btn.setAttribute('aria-label', 'Update app');
-
-  Object.assign(btn.style, {
-    position: 'fixed',
-    bottom: '12px',
-    right: '12px',
-    zIndex: '10000',
-    padding: '8px 14px',
-    fontSize: '13px',
-    fontWeight: '600',
-    color: '#007aff',
-    background: 'rgba(255,255,255,0.95)',
-    border: '1px solid #007aff',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-  });
-
-  btn.addEventListener('click', () => forceAppUpdate());
-
-  document.body.appendChild(btn);
-}
-
-// Add button when DOM is ready
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', createUpdateButton);
-} else {
-  createUpdateButton();
-}
-
-// Expose for programmatic use
 window.forceAppUpdate = forceAppUpdate;
