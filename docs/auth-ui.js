@@ -1,8 +1,27 @@
 // Authentication UI
+
+/** Same set as Flutter [kMoremiAvatarEmojis] — keep in sync. */
+const MOREMI_PROFILE_EMOJIS = [
+  '🐘',
+  '🦁',
+  '🐆',
+  '🦒',
+  '🦏',
+  '🐊',
+  '🐓',
+  '🐃',
+  '🐒',
+  '🦅',
+  '🐢',
+  '🐝',
+  '🦓'
+];
+
 class AuthUI {
   constructor() {
     this.currentStep = 'login-type'; // login-type, email-form, email-pin, phone-form, phone-otp
     this.userData = {};
+    this._profileSetupEmoji = '🐘';
     this.init();
   }
 
@@ -274,6 +293,69 @@ class AuthUI {
           padding: 8px;
         }
       }
+
+      .profile-setup-intro {
+        text-align: center;
+        color: #555;
+        font-size: 15px;
+        line-height: 1.4;
+        margin: 0 0 12px 0;
+      }
+
+      .profile-emoji-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: center;
+        margin-bottom: 16px;
+      }
+
+      .profile-emoji-btn {
+        font-size: 26px;
+        width: 48px;
+        height: 48px;
+        border: 2px solid #e1e5e9;
+        border-radius: 12px;
+        background: #fafafa;
+        cursor: pointer;
+        padding: 0;
+        line-height: 1;
+        transition: border-color 0.15s, background 0.15s, transform 0.1s;
+      }
+
+      .profile-emoji-btn:hover {
+        background: #fff;
+        border-color: #007aff;
+      }
+
+      .profile-emoji-btn.selected {
+        border-color: #2e7d32;
+        background: #e8f5e9;
+        box-shadow: 0 0 0 2px rgba(46, 125, 50, 0.25);
+      }
+
+      .profile-setup-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-top: 8px;
+      }
+
+      .auth-button.skip-link {
+        background: transparent;
+        color: #666;
+        border: none;
+        font-weight: 500;
+        text-decoration: underline;
+        min-height: 44px;
+        box-shadow: none;
+      }
+
+      .auth-button.skip-link:hover {
+        background: rgba(0, 0, 0, 0.04);
+        color: #333;
+        transform: none;
+      }
     `;
 
     document.head.appendChild(style);
@@ -282,6 +364,8 @@ class AuthUI {
 
   showLoginTypeSelection() {
     this.currentStep = 'password-login';
+    const h = document.querySelector('#auth-header h2');
+    if (h) h.textContent = 'Moremi Wildlife Sightings';
     const content = document.getElementById('auth-content');
     content.innerHTML = `
       <div class="auth-form">
@@ -326,6 +410,8 @@ class AuthUI {
 
   showRegisterForm() {
     this.currentStep = 'register';
+    const h = document.querySelector('#auth-header h2');
+    if (h) h.textContent = 'Create account';
     const content = document.getElementById('auth-content');
     content.innerHTML = `
       <div class="auth-form">
@@ -404,12 +490,92 @@ class AuthUI {
     try {
       await window.authService.registerAccount({ username, password, email, phone, displayName });
       this.showMessage('register-message', 'Account created — welcome!', 'success');
-      setTimeout(() => this.hideAuthAndStartApp(), 800);
+      setTimeout(() => this.showPostRegisterSetup(), 500);
     } catch (e) {
       this.showMessage('register-message', e.message || 'Registration failed', 'error');
     } finally {
       this.setLoading('register-submit-btn', false);
     }
+  }
+
+  showPostRegisterSetup() {
+    this.currentStep = 'post-register-profile';
+    this._profileSetupEmoji = '🐘';
+    const content = document.getElementById('auth-content');
+    const header = document.querySelector('#auth-header h2');
+    if (header) header.textContent = 'Configure your profile';
+
+    const emojiButtons = MOREMI_PROFILE_EMOJIS.map(
+      (e) =>
+        `<button type="button" class="profile-emoji-btn${e === '🐘' ? ' selected' : ''}" data-emoji="${e}" aria-label="Avatar ${e}">${e}</button>`
+    ).join('');
+
+    content.innerHTML = `
+      <p class="profile-setup-intro">Choose an animal avatar. Optionally enter a group invite code — you can also join later from <strong>Groups</strong>.</p>
+      <div class="profile-emoji-grid" id="profile-emoji-grid">
+        ${emojiButtons}
+      </div>
+      <div class="auth-form" style="gap: 14px;">
+        <div class="form-group">
+          <label for="profile-invite-code">Group invite code (optional)</label>
+          <input type="text" id="profile-invite-code" placeholder="e.g. ABC123" autocomplete="off" autocapitalize="characters">
+        </div>
+        <div class="profile-setup-actions">
+          <button class="auth-button" id="profile-continue-btn" type="button" onclick="window.authUI.handlePostRegisterContinue()">
+            Save &amp; continue
+          </button>
+          <button class="auth-button skip-link" type="button" id="profile-skip-btn" onclick="window.authUI.handlePostRegisterSkip()">
+            Skip for now
+          </button>
+        </div>
+        <div id="profile-setup-message"></div>
+      </div>
+    `;
+
+    const grid = document.getElementById('profile-emoji-grid');
+    grid?.addEventListener('click', (ev) => {
+      const btn = ev.target.closest('.profile-emoji-btn');
+      if (!btn) return;
+      const e = btn.getAttribute('data-emoji');
+      if (!e) return;
+      this._profileSetupEmoji = e;
+      grid.querySelectorAll('.profile-emoji-btn').forEach((b) => b.classList.remove('selected'));
+      btn.classList.add('selected');
+    });
+  }
+
+  async handlePostRegisterContinue() {
+    const msgEl = 'profile-setup-message';
+    const inviteInput = document.getElementById('profile-invite-code');
+    const rawCode = inviteInput ? inviteInput.value.trim() : '';
+
+    this.setLoading('profile-continue-btn', true);
+    try {
+      await window.authService.saveInitialUserProfile({ avatarEmoji: this._profileSetupEmoji });
+      if (rawCode.length >= 4) {
+        try {
+          await window.authService.joinGroupWithInviteCode(rawCode);
+          this.showMessage(msgEl, 'Profile saved — joined group!', 'success');
+        } catch (joinErr) {
+          this.showMessage(
+            msgEl,
+            `Profile saved. Could not join group: ${joinErr.message || joinErr}. You can try again in the app.`,
+            'error'
+          );
+          this.setLoading('profile-continue-btn', false);
+          return;
+        }
+      }
+      setTimeout(() => this.hideAuthAndStartApp(), 400);
+    } catch (e) {
+      this.showMessage(msgEl, e.message || 'Could not save profile', 'error');
+    } finally {
+      this.setLoading('profile-continue-btn', false);
+    }
+  }
+
+  handlePostRegisterSkip() {
+    this.hideAuthAndStartApp();
   }
 
   showEmailForm() {
@@ -673,6 +839,8 @@ class AuthUI {
         button.textContent = 'Sign in';
       } else if (buttonId.includes('register-submit')) {
         button.textContent = 'Register';
+      } else if (buttonId.includes('profile-continue')) {
+        button.textContent = 'Save & continue';
       } else {
         // Fallback: try to restore original text
         const currentText = button.textContent;
