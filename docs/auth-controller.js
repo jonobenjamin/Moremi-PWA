@@ -25,12 +25,22 @@ class AuthController {
       console.warn('[Moremi] clearStaleFirebaseSession:', e);
     });
 
+    if (await window.authService?.purgeLegacyFirebaseUidIfNeeded?.()) {
+      console.warn('[Moremi] Legacy auth UID removed — showing sign-in.');
+      window.authUI?.showLoginTypeSelection?.();
+      return;
+    }
+
     const storedAuth = mlsGet('userAuthenticated');
     const storedUserName = mlsGet('authenticatedUserName');
 
     if (storedAuth === 'true' && storedUserName) {
       const firebaseOk = await window.authService?.waitForFirebaseUser?.(4000);
       if (firebaseOk) {
+        if (await window.authService?.purgeLegacyFirebaseUidIfNeeded?.()) {
+          window.authUI?.showLoginTypeSelection?.();
+          return;
+        }
         console.log('Restoring session for:', storedUserName);
         this.startFlutterApp();
         return;
@@ -48,6 +58,10 @@ class AuthController {
     }
 
     if (this.isFirebaseRuntimeReady() && window.authService?.isAuthenticated?.()) {
+      if (await window.authService?.purgeLegacyFirebaseUidIfNeeded?.()) {
+        window.authUI?.showLoginTypeSelection?.();
+        return;
+      }
       console.log('User authenticated via Firebase');
       this.startFlutterApp();
       return;

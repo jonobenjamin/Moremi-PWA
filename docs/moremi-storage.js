@@ -1,6 +1,6 @@
 /**
- * Path-scoped localStorage so multiple apps under the same origin (e.g. user.github.io)
- * do not share auth/session keys. Also migrates legacy unprefixed keys on Moremi-PWA only.
+ * Path-scoped localStorage (Moremi PWA). Canonical module — import `./moremi-storage.js`.
+ * `moremi-scoped-storage.js` re-exports from here for older import paths.
  */
 const LEGACY_KEYS = [
   'firebaseIdToken',
@@ -9,6 +9,15 @@ const LEGACY_KEYS = [
   'authenticatedUserName',
   'authenticatedUsername'
 ];
+
+export function moremiIsLegacyFirebaseUid(uid) {
+  if (uid == null || typeof uid !== 'string') return false;
+  return (
+    uid.startsWith('uname_') ||
+    uid.startsWith('email_') ||
+    uid.startsWith('phone_')
+  );
+}
 
 export function moremiStoragePrefix() {
   try {

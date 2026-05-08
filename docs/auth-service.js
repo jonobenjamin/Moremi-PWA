@@ -1,4 +1,4 @@
-// Authentication Service
+// Authentication Service — MOREMI_AUTH_MODULE=moremi-storage-2026050618
 import {
   mlsGet,
   mlsSet,
