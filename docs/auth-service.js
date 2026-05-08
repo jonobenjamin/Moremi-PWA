@@ -1,4 +1,4 @@
-// Authentication Service — MOREMI_AUTH_MODULE=moremi-storage-2026050618
+// Authentication Service — MOREMI_AUTH_MODULE=moremi-storage-2026050813
 import {
   mlsGet,
   mlsSet,
@@ -14,7 +14,8 @@ import {
   signInWithPhoneNumber,
   RecaptchaVerifier,
   signOut,
-  onAuthStateChanged
+  onAuthStateChanged,
+  sendPasswordResetEmail
 } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 import {
   getFirestore,
@@ -188,14 +189,50 @@ class AuthService {
 
   async loginWithPassword(email, password) {
     const apiBase = this.apiBase();
-    console.log('Email/password sign-in for:', email);
     if (!apiBase) throw new Error('API URL not set — edit docs/firebase-config.js');
     await this.ensureAuthClient();
     const emailNorm = String(email).trim().toLowerCase();
     if (!emailNorm || !password) {
       throw new Error('Email and password are required');
     }
-    const result = await signInWithEmailAndPassword(this.auth, emailNorm, password);
+    const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailNorm);
+    if (!emailOk) {
+      throw new Error('Use your full email address (for example name@domain.com)');
+    }
+    console.log('Email/password sign-in for:', emailNorm);
+    let result;
+    try {
+      result = await signInWithEmailAndPassword(this.auth, emailNorm, password);
+    } catch (e) {
+      const code = e && e.code;
+      console.warn('[Moremi] signInWithEmailAndPassword', code || '(no code)', e?.message || e);
+      if (code === 'auth/invalid-email') {
+        throw new Error('Use your full email address (for example name@domain.com)');
+      }
+      if (
+        code === 'auth/user-not-found' ||
+        code === 'auth/wrong-password' ||
+        code === 'auth/invalid-credential' ||
+        code === 'auth/invalid-login-credentials' ||
+        code === 'auth/missing-password'
+      ) {
+        throw new Error(
+          'Incorrect email or password. If you used “Email (PIN)” before, your account has a hidden password — use Forgot password to set one you know.'
+        );
+      }
+      if (code === 'auth/too-many-requests') {
+        throw new Error('Too many attempts. Try again in a few minutes.');
+      }
+      if (code === 'auth/operation-not-allowed') {
+        throw new Error(
+          'Email/password sign-in is turned off in Firebase. Enable it: Firebase Console → Authentication → Sign-in method → Email/Password.'
+        );
+      }
+      if (code === 'auth/user-disabled') {
+        throw new Error('This account is disabled. Contact support.');
+      }
+      throw new Error(e?.message || 'Sign-in failed');
+    }
     mlsSet('userAuthenticated', 'true');
     mlsSet('authenticatedUserName', result.user.displayName || emailNorm.split('@')[0] || '');
     mlsSet('authenticatedUsername', emailNorm);
@@ -208,6 +245,31 @@ class AuthService {
     }
     await this.updateUserLastLogin(result.user.uid);
     return result;
+  }
+
+  async requestPasswordReset(email) {
+    if (!this.apiBase()) throw new Error('API URL not set — edit docs/firebase-config.js');
+    await this.ensureAuthClient();
+    const emailNorm = String(email).trim().toLowerCase();
+    if (!emailNorm || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailNorm)) {
+      throw new Error('Enter a valid email address');
+    }
+    try {
+      await sendPasswordResetEmail(this.auth, emailNorm);
+    } catch (e) {
+      const code = e && e.code;
+      console.warn('[Moremi] sendPasswordResetEmail', code, e?.message);
+      if (code === 'auth/user-not-found') {
+        throw new Error('No Firebase account for that email. Try Create account or Email (PIN) sign-in.');
+      }
+      if (code === 'auth/too-many-requests') {
+        throw new Error('Too many reset emails. Wait a few minutes and try again.');
+      }
+      if (code === 'auth/operation-not-allowed') {
+        throw new Error('Password reset is not available (check Email/Password is enabled in Firebase).');
+      }
+      throw new Error(e?.message || 'Could not send reset email');
+    }
   }
 
   async registerAccount({ username, password, email, phone, displayName }) {

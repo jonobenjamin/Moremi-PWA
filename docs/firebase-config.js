@@ -6,13 +6,17 @@
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
 import {
+  initializeAuth,
   getAuth,
+  browserLocalPersistence,
   signInWithCustomToken,
+  signInWithEmailAndPassword,
   signInWithPhoneNumber,
   RecaptchaVerifier,
   signOut,
   onAuthStateChanged,
-  sendSignInLinkToEmail
+  sendSignInLinkToEmail,
+  sendPasswordResetEmail
 } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 import {
   getFirestore,
@@ -39,11 +43,13 @@ window.__MOREMI_FIREBASE_BOOTSTRAP_ERROR__ = '';
 
 const firebaseExports = {
   signInWithCustomToken,
+  signInWithEmailAndPassword,
   signInWithPhoneNumber,
   RecaptchaVerifier,
   signOut,
   onAuthStateChanged,
   sendSignInLinkToEmail,
+  sendPasswordResetEmail,
   doc,
   setDoc,
   getDoc,
@@ -65,41 +71,53 @@ function firebaseConfigIsComplete(cfg) {
 
 let usedRemoteFirebaseConfig = false;
 let MOREMI_FIRESTORE_DATABASE_ID = '(default)';
-let firebaseConfig = { ...fallbackFirebaseConfig };
 
-try {
-  const url = `${MOREMI_API_BASE}/api/client-firebase-config`;
-  const r = await fetch(url, { cache: 'no-store' });
-  if (r.ok) {
-    const remote = await r.json();
-    if (firebaseConfigIsComplete(remote) && !remote.error) {
-      MOREMI_FIRESTORE_DATABASE_ID = remote.firestoreDatabaseId || '(default)';
-      firebaseConfig = {
-        apiKey: remote.apiKey,
-        authDomain: remote.authDomain || `${remote.projectId}.firebaseapp.com`,
-        projectId: remote.projectId,
-        storageBucket: remote.storageBucket || `${remote.projectId}.firebasestorage.app`,
-        messagingSenderId: remote.messagingSenderId,
-        appId: remote.appId
-      };
-      usedRemoteFirebaseConfig = true;
-      console.log('[Moremi] Using remote Firebase config');
-      console.log('[Moremi] Remote project:', firebaseConfig.projectId, 'Firestore:', MOREMI_FIRESTORE_DATABASE_ID);
-    } else {
-      console.warn('[Moremi] Remote Firebase config incomplete or error; using embedded fallback.', remote);
-    }
-  } else {
-    console.warn(`[Moremi] /api/client-firebase-config HTTP ${r.status}; using embedded fallback.`);
+function applyRemoteFirestoreIfNeeded(app, remote) {
+  if (!firebaseConfigIsComplete(remote) || remote.error) return;
+  usedRemoteFirebaseConfig = true;
+  const dbId = remote.firestoreDatabaseId || '(default)';
+  if (dbId !== MOREMI_FIRESTORE_DATABASE_ID) {
+    MOREMI_FIRESTORE_DATABASE_ID = dbId;
+    window.firebaseAuth.db = getFirestore(app, MOREMI_FIRESTORE_DATABASE_ID);
+    console.log('[Moremi] Remote Firestore database:', MOREMI_FIRESTORE_DATABASE_ID);
   }
-} catch (e) {
-  console.warn('[Moremi] /api/client-firebase-config fetch failed; using embedded fallback.', e?.message || e);
 }
 
-if (!usedRemoteFirebaseConfig) {
-  console.log('[Moremi] Using fallback Firebase config');
+function fetchRemoteFirestoreConfig(app) {
+  void (async () => {
+    try {
+      const url = `${MOREMI_API_BASE}/api/client-firebase-config`;
+      const r = await fetch(url, { cache: 'no-store' });
+      if (r.ok) {
+        const remote = await r.json();
+        if (firebaseConfigIsComplete(remote) && !remote.error) {
+          if (remote.projectId && remote.projectId !== fallbackFirebaseConfig.projectId) {
+            console.warn(
+              '[Moremi] Remote Firebase project differs from embedded config; keeping embedded app id for stability.',
+              remote.projectId,
+              'vs',
+              fallbackFirebaseConfig.projectId
+            );
+          } else {
+            console.log('[Moremi] Remote /api/client-firebase-config OK; Firestore:', remote.firestoreDatabaseId || '(default)');
+            applyRemoteFirestoreIfNeeded(app, remote);
+          }
+        } else {
+          console.warn('[Moremi] Remote Firebase config incomplete or error; using embedded Firestore.', remote);
+        }
+      } else {
+        console.warn(`[Moremi] /api/client-firebase-config HTTP ${r.status}; using embedded Firestore.`);
+      }
+    } catch (e) {
+      console.warn('[Moremi] /api/client-firebase-config fetch failed; using embedded Firestore.', e?.message || e);
+    }
+    if (!usedRemoteFirebaseConfig) {
+      console.log('[Moremi] Using embedded Firebase config only (default Firestore DB)');
+    }
+  })();
 }
 
-const missingFirebase = !firebaseConfigIsComplete(firebaseConfig);
+const missingFirebase = !firebaseConfigIsComplete(fallbackFirebaseConfig);
 
 if (missingFirebase) {
   window.__MOREMI_FIREBASE_BOOTSTRAP_ERROR__ =
@@ -112,8 +130,20 @@ if (missingFirebase) {
     ...firebaseExports
   };
 } else {
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
+  const app = initializeApp(fallbackFirebaseConfig);
+  window.__MOREMI_FIREBASE_APP__ = app;
+  // Synchronous bootstrap (no await before this) so Auth inits before Flutter loads — avoids
+  // IndexedDB + iframe / gapi races (api.js "u[v] is not a function").
+  let auth;
+  try {
+    auth = initializeAuth(app, { persistence: browserLocalPersistence });
+  } catch (e) {
+    if (e && e.code === 'auth/already-initialized') {
+      auth = getAuth(app);
+    } else {
+      throw e;
+    }
+  }
   const db = getFirestore(app, MOREMI_FIRESTORE_DATABASE_ID);
   window.__MOREMI_FIREBASE_BOOTSTRAP_ERROR__ = '';
   window.__MOREMI_FIREBASE_READY__ = true;
@@ -122,5 +152,6 @@ if (missingFirebase) {
     db,
     ...firebaseExports
   };
-  console.log('[Moremi] Firebase initialized', firebaseConfig.projectId, 'Firestore:', MOREMI_FIRESTORE_DATABASE_ID);
+  console.log('[Moremi] Firebase initialized', fallbackFirebaseConfig.projectId, 'Firestore:', MOREMI_FIRESTORE_DATABASE_ID);
+  fetchRemoteFirestoreConfig(app);
 }

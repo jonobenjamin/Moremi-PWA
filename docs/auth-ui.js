@@ -370,8 +370,8 @@ class AuthUI {
     content.innerHTML = `
       <div class="auth-form">
         <div class="form-group">
-          <label for="username">Username</label>
-          <input type="text" id="username" placeholder="Your username" required autocomplete="username">
+          <label for="login-email">Email</label>
+          <input type="email" id="login-email" placeholder="you@example.com" required autocomplete="email">
         </div>
         <div class="form-group">
           <label for="password">Password</label>
@@ -381,13 +381,19 @@ class AuthUI {
           Sign in
         </button>
         <div id="password-login-message"></div>
+        <p style="margin:10px 0 0;font-size:0.9em">
+          <a class="auth-link" href="#" onclick="event.preventDefault(); window.authUI.handlePasswordReset(); return false;">
+            Forgot password?
+          </a>
+          <span style="opacity:0.7"> — needed if you first signed in with email PIN only.</span>
+        </p>
       </div>
       <div class="auth-links">
         <a class="auth-link" onclick="window.authUI.showRegisterForm()">Create account</a>
         <a class="auth-link" onclick="window.authUI.showAlternateSignIn()">Email / phone instead</a>
       </div>
     `;
-    setTimeout(() => document.getElementById('username').focus(), 100);
+    setTimeout(() => document.getElementById('login-email').focus(), 100);
   }
 
   showAlternateSignIn() {
@@ -403,7 +409,7 @@ class AuthUI {
           </button>
         </div>
         <div class="auth-links">
-          <a class="auth-link" onclick="window.authUI.showLoginTypeSelection()">← Username &amp; password</a>
+          <a class="auth-link" onclick="window.authUI.showLoginTypeSelection()">← Email &amp; password</a>
         </div>
     `;
   }
@@ -416,8 +422,8 @@ class AuthUI {
     content.innerHTML = `
       <div class="auth-form">
         <div class="form-group">
-          <label for="reg-username">Username</label>
-          <input type="text" id="reg-username" placeholder="Choose a username (letters/numbers)" required autocomplete="username">
+          <label for="reg-email">Email</label>
+          <input type="email" id="reg-email" placeholder="your@email.com" required autocomplete="email">
         </div>
         <div class="form-group">
           <label for="reg-password">Password</label>
@@ -428,11 +434,11 @@ class AuthUI {
           <input type="text" id="reg-display" placeholder="How you appear in the app">
         </div>
         <div class="form-group">
-          <label for="reg-email">Email (required if no phone)</label>
-          <input type="email" id="reg-email" placeholder="your@email.com" autocomplete="email">
+          <label for="reg-username">Profile handle (optional)</label>
+          <input type="text" id="reg-username" placeholder="Short nickname — not your sign-in id" autocomplete="off">
         </div>
         <div class="form-group">
-          <label for="reg-phone">Phone — E.164 (required if no email)</label>
+          <label for="reg-phone">Phone — E.164 (optional)</label>
           <input type="tel" id="reg-phone" placeholder="+267…" autocomplete="tel">
         </div>
         <button class="auth-button" id="register-submit-btn" onclick="window.authUI.handleRegisterSubmit()">
@@ -444,19 +450,27 @@ class AuthUI {
         <a class="auth-link" onclick="window.authUI.showLoginTypeSelection()">← Back to sign in</a>
       </div>
     `;
-    setTimeout(() => document.getElementById('reg-username').focus(), 100);
+    setTimeout(() => document.getElementById('reg-email').focus(), 100);
   }
 
   async handlePasswordLogin() {
-    const username = document.getElementById('username').value.trim();
+    const email = document.getElementById('login-email').value.trim().toLowerCase();
     const password = document.getElementById('password').value;
-    if (!username || !password) {
-      this.showMessage('password-login-message', 'Enter username and password', 'error');
+    if (!email || !password) {
+      this.showMessage('password-login-message', 'Enter email and password', 'error');
+      return;
+    }
+    if (!this.isValidEmail(email)) {
+      this.showMessage(
+        'password-login-message',
+        'Use your full email address (for example name@domain.com)',
+        'error'
+      );
       return;
     }
     this.setLoading('password-login-btn', true);
     try {
-      await window.authService.loginWithPassword(username, password);
+      await window.authService.loginWithPassword(email, password);
       this.showMessage('password-login-message', 'Signed in successfully', 'success');
       setTimeout(() => this.hideAuthAndStartApp(), 600);
     } catch (e) {
@@ -466,24 +480,55 @@ class AuthUI {
     }
   }
 
+  async handlePasswordReset() {
+    const emailEl = document.getElementById('login-email');
+    const email = emailEl ? emailEl.value.trim().toLowerCase() : '';
+    if (!email || !this.isValidEmail(email)) {
+      this.showMessage(
+        'password-login-message',
+        'Enter your email in the box above, then click Forgot password again.',
+        'error'
+      );
+      if (emailEl) emailEl.focus();
+      return;
+    }
+    try {
+      await window.authService.requestPasswordReset(email);
+      this.showMessage(
+        'password-login-message',
+        'Check your inbox for a reset link from Firebase (also spam). Then return here and sign in with your new password.',
+        'success'
+      );
+    } catch (e) {
+      this.showMessage('password-login-message', e.message || 'Could not send reset email', 'error');
+    }
+  }
+
   async handleRegisterSubmit() {
-    const username = document.getElementById('reg-username').value.trim();
+    const email = document.getElementById('reg-email').value.trim().toLowerCase();
     const password = document.getElementById('reg-password').value;
     const displayName = document.getElementById('reg-display').value.trim();
-    const email = document.getElementById('reg-email').value.trim();
+    const username = document.getElementById('reg-username').value.trim();
     const phone = document.getElementById('reg-phone').value.trim();
 
-    if (!username || !password) {
-      this.showMessage('register-message', 'Username and password are required', 'error');
+    if (!email || !password) {
+      this.showMessage('register-message', 'Email and password are required', 'error');
+      return;
+    }
+    if (!this.isValidEmail(email)) {
+      this.showMessage('register-message', 'Enter a valid email address', 'error');
       return;
     }
     if (password.length < 6) {
       this.showMessage('register-message', 'Password must be at least 6 characters', 'error');
       return;
     }
-    if (!email && !phone) {
-      this.showMessage('register-message', 'Provide an email address or international-format phone number', 'error');
-      return;
+    if (phone) {
+      const phoneRegex = /^\+[1-9]\d{1,14}$/;
+      if (!phoneRegex.test(phone)) {
+        this.showMessage('register-message', 'Phone must be in international format (e.g. +26771234567)', 'error');
+        return;
+      }
     }
 
     this.setLoading('register-submit-btn', true);
