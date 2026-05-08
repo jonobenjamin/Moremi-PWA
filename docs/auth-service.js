@@ -1,4 +1,4 @@
-// Authentication Service — MOREMI_AUTH_MODULE=moremi-storage-2026050813
+// Authentication Service — MOREMI_AUTH_MODULE=moremi-storage-2026050814
 import {
   mlsGet,
   mlsSet,
@@ -205,33 +205,56 @@ class AuthService {
       result = await signInWithEmailAndPassword(this.auth, emailNorm, password);
     } catch (e) {
       const code = e && e.code;
-      console.warn('[Moremi] signInWithEmailAndPassword', code || '(no code)', e?.message || e);
-      if (code === 'auth/invalid-email') {
-        throw new Error('Use your full email address (for example name@domain.com)');
-      }
-      if (
+      const msg = String(e && e.message ? e.message : e || '');
+      const rest =
+        (e &&
+          e.customData &&
+          e.customData._serverResponse &&
+          e.customData._serverResponse.error &&
+          e.customData._serverResponse.error.message) ||
+        '';
+      console.warn('[Moremi] signInWithEmailAndPassword', {
+        firebaseCode: code || null,
+        message: msg,
+        identityToolkit: rest || null
+      });
+      const credProblem =
         code === 'auth/user-not-found' ||
         code === 'auth/wrong-password' ||
         code === 'auth/invalid-credential' ||
         code === 'auth/invalid-login-credentials' ||
-        code === 'auth/missing-password'
-      ) {
+        code === 'auth/missing-password' ||
+        /INVALID_LOGIN_CREDENTIALS|INVALID_PASSWORD|EMAIL_NOT_FOUND/i.test(rest) ||
+        /INVALID_LOGIN_CREDENTIALS|INVALID_PASSWORD|EMAIL_NOT_FOUND/i.test(msg);
+      if (code === 'auth/invalid-email') {
         throw new Error(
-          'Incorrect email or password. If you used “Email (PIN)” before, your account has a hidden password — use Forgot password to set one you know.'
+          'Use your full email address (for example name@domain.com). If you see this with a normal email, deploy the latest site and hard-refresh. [Firebase: auth/invalid-email]'
+        );
+      }
+      if (credProblem) {
+        throw new Error(
+          'That email and password don’t match what Firebase has. If you ever used “Email (PIN)”, Firebase gave you a random password you never saw — tap Forgot password and set a new one. In Firebase Console → Authentication → Users, confirm this email exists with Email/Password. [' +
+            (code || rest || 'invalid-credentials') +
+            ']'
         );
       }
       if (code === 'auth/too-many-requests') {
-        throw new Error('Too many attempts. Try again in a few minutes.');
+        throw new Error('Too many attempts. Try again in a few minutes. [Firebase: auth/too-many-requests]');
       }
       if (code === 'auth/operation-not-allowed') {
         throw new Error(
-          'Email/password sign-in is turned off in Firebase. Enable it: Firebase Console → Authentication → Sign-in method → Email/Password.'
+          'Email/password sign-in is turned off in Firebase. Enable it: Authentication → Sign-in method → Email/Password. [Firebase: auth/operation-not-allowed]'
         );
       }
       if (code === 'auth/user-disabled') {
-        throw new Error('This account is disabled. Contact support.');
+        throw new Error('This account is disabled. Contact support. [Firebase: auth/user-disabled]');
       }
-      throw new Error(e?.message || 'Sign-in failed');
+      throw new Error(
+        (e?.message || 'Sign-in failed') +
+          ' [Firebase: ' +
+          (code || rest || 'unknown') +
+          '] Check Google Cloud → APIs & Services → Credentials: this web API key must allow HTTP referrers for your GitHub Pages domain (or be unrestricted for testing).'
+      );
     }
     mlsSet('userAuthenticated', 'true');
     mlsSet('authenticatedUserName', result.user.displayName || emailNorm.split('@')[0] || '');
