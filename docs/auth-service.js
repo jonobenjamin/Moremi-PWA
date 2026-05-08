@@ -4,11 +4,13 @@ import {
   mlsSet,
   mlsRemove,
   mlsClearAuthKeys,
-  moremiMigrateLegacyStorage
+  moremiMigrateLegacyStorage,
+  moremiIsLegacyFirebaseUid
 } from './moremi-storage.js';
 // Import Firebase functions directly
 import {
   signInWithCustomToken,
+  signInWithEmailAndPassword,
   signInWithPhoneNumber,
   RecaptchaVerifier,
   signOut,
@@ -36,6 +38,28 @@ class AuthService {
     if (this._authListenerBound || !this.auth) return;
     this._authListenerBound = true;
     onAuthStateChanged(this.auth, async (user) => {
+      if (user && moremiIsLegacyFirebaseUid(user.uid)) {
+        console.warn(
+          '[Moremi] This app no longer uses custom sign-in IDs. Signed out — please sign in again with email/password or PIN.'
+        );
+        try {
+          await signOut(this.auth);
+        } catch (e) {
+          console.warn('[Moremi] signOut (legacy uid):', e);
+        }
+        this.currentUser = null;
+        mlsClearAuthKeys();
+        try {
+          window.authUI?.showAuthOverlay?.();
+          window.authUI?.showLoginTypeSelection?.();
+        } catch (e) {
+          /* ignore */
+        }
+        if (window.authController?.flutterStarted) {
+          window.location.reload();
+        }
+        return;
+      }
       this.currentUser = user;
       if (user) {
         console.log('User signed in:', user.uid);
@@ -162,29 +186,27 @@ class AuthService {
     }
   }
 
-  async loginWithPassword(username, password) {
+  async loginWithPassword(email, password) {
     const apiBase = this.apiBase();
-    console.log('Password login for:', username);
+    console.log('Email/password sign-in for:', email);
     if (!apiBase) throw new Error('API URL not set — edit docs/firebase-config.js');
     await this.ensureAuthClient();
-    const response = await fetch(`${apiBase}/api/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: String(username).trim(), password })
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      throw new Error(data.message || 'Login failed');
+    const emailNorm = String(email).trim().toLowerCase();
+    if (!emailNorm || !password) {
+      throw new Error('Email and password are required');
     }
-    if (!data.customToken) {
-      throw new Error('Invalid server response');
-    }
-    const result = await this.signInWithCustomTokenResilient(data.customToken);
+    const result = await signInWithEmailAndPassword(this.auth, emailNorm, password);
     mlsSet('userAuthenticated', 'true');
-    mlsSet('authenticatedUserName', data.name || '');
-    if (data.username) {
-      mlsSet('authenticatedUsername', data.username);
+    mlsSet('authenticatedUserName', result.user.displayName || emailNorm.split('@')[0] || '');
+    mlsSet('authenticatedUsername', emailNorm);
+    try {
+      const token = await result.user.getIdToken();
+      mlsSet('firebaseIdToken', token);
+      mlsSet('firebaseUid', result.user.uid);
+    } catch (e) {
+      console.warn('[Moremi] Token storage:', e);
     }
+    await this.updateUserLastLogin(result.user.uid);
     return result;
   }
 
@@ -192,12 +214,20 @@ class AuthService {
     const apiBase = this.apiBase();
     if (!apiBase) throw new Error('API URL not set — edit docs/firebase-config.js');
     await this.ensureAuthClient();
+    const emailNorm = email ? String(email).trim().toLowerCase() : '';
+    if (!emailNorm || !password) {
+      throw new Error('Email and password are required');
+    }
     const body = {
-      username: String(username).trim(),
+      email: emailNorm,
       password,
-      displayName: (displayName && String(displayName).trim()) || String(username).trim()
+      displayName:
+        (displayName && String(displayName).trim()) ||
+        (username && String(username).trim()) ||
+        emailNorm.split('@')[0] ||
+        'User'
     };
-    if (email && String(email).trim()) body.email = String(email).trim();
+    if (username && String(username).trim()) body.username = String(username).trim().toLowerCase();
     if (phone && String(phone).trim()) body.phone = String(phone).trim();
 
     const response = await fetch(`${apiBase}/api/auth/register`, {
@@ -214,21 +244,81 @@ class AuthService {
     }
     const result = await this.signInWithCustomTokenResilient(data.customToken);
     mlsSet('userAuthenticated', 'true');
-    mlsSet('authenticatedUserName', data.name || '');
-    if (data.username) {
-      mlsSet('authenticatedUsername', data.username);
-    }
+    mlsSet('authenticatedUserName', data.name || body.displayName);
+    mlsSet('authenticatedUsername', data.email || emailNorm);
     try {
       await this.createOrUpdateUser(result.user, {
         email: body.email,
-        name: body.displayName,
+        name: data.name || body.displayName,
         phone: body.phone,
-        username: data.username
+        username: data.username || body.username
       });
     } catch (err) {
       console.warn('createOrUpdateUser after register:', err);
     }
     return result;
+  }
+
+  /**
+   * Create or merge userProfiles for the signed-in user (after registration wizard).
+   */
+  async saveInitialUserProfile({ avatarEmoji }) {
+    await this.ensureAuthClient();
+    const uid = this.auth.currentUser?.uid;
+    if (!uid) throw new Error('Not signed in');
+    if (!this.db) throw new Error('Firestore not ready');
+
+    const displayName = (mlsGet('authenticatedUserName') || 'User').trim() || 'User';
+    const emoji = (avatarEmoji && String(avatarEmoji)) || '🐘';
+
+    const ref = doc(this.db, 'userProfiles', uid);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) {
+      await setDoc(ref, {
+        username: displayName,
+        avatarEmoji: emoji,
+        createdAt: serverTimestamp(),
+        currentGroupId: null
+      });
+    } else {
+      await setDoc(
+        ref,
+        {
+          username: displayName,
+          avatarEmoji: emoji
+        },
+        { merge: true }
+      );
+    }
+  }
+
+  /**
+   * POST /api/auth/join-group with Firebase ID token (same as Flutter join).
+   */
+  async joinGroupWithInviteCode(rawCode) {
+    const apiBase = this.apiBase();
+    if (!apiBase) throw new Error('API URL not set');
+    await this.ensureAuthClient();
+    const user = this.auth.currentUser;
+    if (!user) throw new Error('Not signed in');
+    const token = await user.getIdToken();
+    const inviteCode = String(rawCode || '').trim().toUpperCase();
+    if (inviteCode.length < 4) {
+      throw new Error('Enter a valid invite code');
+    }
+    const response = await fetch(`${apiBase}/api/auth/join-group`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ inviteCode })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.message || 'Could not join group');
+    }
+    return data;
   }
 
   async requestEmailPin(email, name) {
@@ -446,12 +536,9 @@ class AuthService {
     const userDoc = {
       uid: user.uid,
       name: userData.name,
-      email: userData.email,
-      phone: userData.phone || null,
+      email: userData.email ?? user.email ?? null,
+      phone: userData.phone ?? user.phoneNumber ?? null,
       ...(userData.username ? { username: userData.username } : {}),
-      role: 'user',
-      status: 'active',
-      registeredAt: userData.registeredAt || serverTimestamp(),
       lastLogin: serverTimestamp()
     };
 
@@ -605,6 +692,28 @@ class AuthService {
     return isActive;
   }
 
+  async purgeLegacyFirebaseUidIfNeeded() {
+    try {
+      await this.ensureAuthClient();
+    } catch (e) {
+      return false;
+    }
+    if (!this.auth) return false;
+    const u = this.auth.currentUser;
+    if (!u || !moremiIsLegacyFirebaseUid(u.uid)) return false;
+    console.warn(
+      '[Moremi] Clearing legacy custom Firebase UID — sign in again with email/password or PIN.'
+    );
+    try {
+      await signOut(this.auth);
+    } catch (e) {
+      console.warn('[Moremi] signOut (legacy uid purge):', e);
+    }
+    this.currentUser = null;
+    mlsClearAuthKeys();
+    return true;
+  }
+
   async signOut() {
     try {
       await this.ensureAuthClient();
@@ -629,6 +738,17 @@ class AuthService {
       return;
     }
     if (!this.auth) return;
+    if (this.auth.currentUser && moremiIsLegacyFirebaseUid(this.auth.currentUser.uid)) {
+      console.warn('[Moremi] Clearing session: legacy custom Firebase UID is no longer valid.');
+      try {
+        await signOut(this.auth);
+      } catch (e) {
+        console.warn('[Moremi] signOut (legacy uid):', e);
+      }
+      this.currentUser = null;
+      mlsClearAuthKeys();
+      return;
+    }
     if (this.auth.currentUser && mlsGet('userAuthenticated') !== 'true') {
       try {
         await signOut(this.auth);
