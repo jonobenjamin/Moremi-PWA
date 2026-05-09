@@ -29,10 +29,16 @@ class AuthService {
   constructor() {
     this.currentUser = null;
     this.recaptchaVerifier = null;
-    this.auth = null;
-    this.db = null;
     this._authListenerBound = false;
     void this.init();
+  }
+
+  get auth() {
+    return window.firebaseAuth?.auth || null;
+  }
+
+  get db() {
+    return window.firebaseAuth?.db || null;
   }
 
   bindAuthStateListener() {
@@ -63,7 +69,6 @@ class AuthService {
       }
       this.currentUser = user;
       if (user) {
-        console.log('User signed in:', user.uid);
         void this.updateUserLastLogin(user.uid);
         try {
           const token = await user.getIdToken();
@@ -80,7 +85,6 @@ class AuthService {
           })
           .catch(() => {});
       } else {
-        console.log('User signed out');
         mlsRemove('firebaseIdToken');
         mlsRemove('firebaseUid');
       }
@@ -88,10 +92,7 @@ class AuthService {
   }
 
   tryBindFromWindow() {
-    const a = window.firebaseAuth?.auth;
-    if (!a) return false;
-    this.auth = a;
-    this.db = window.firebaseAuth?.db ?? null;
+    if (!this.auth) return false;
     this.bindAuthStateListener();
     return true;
   }
@@ -199,7 +200,6 @@ class AuthService {
     if (!emailOk) {
       throw new Error('Use your full email address (for example name@domain.com)');
     }
-    console.log('Email/password sign-in for:', emailNorm);
     let result;
     try {
       result = await signInWithEmailAndPassword(this.auth, emailNorm, password);
@@ -253,7 +253,7 @@ class AuthService {
         (e?.message || 'Sign-in failed') +
           ' [Firebase: ' +
           (code || rest || 'unknown') +
-          '] Check Google Cloud → APIs & Services → Credentials: this web API key must allow HTTP referrers for your GitHub Pages domain (or be unrestricted for testing).'
+          '] Please check your internet connection and try again.'
       );
     }
     mlsSet('userAuthenticated', 'true');
@@ -408,7 +408,6 @@ class AuthService {
 
   async requestEmailPin(email, name) {
     try {
-      console.log('Making PIN request for:', email);
       const apiBase = this.apiBase();
       if (!apiBase) throw new Error('API URL not set — edit docs/firebase-config.js');
       const response = await fetch(`${apiBase}/api/auth/request-pin`, {
@@ -419,18 +418,12 @@ class AuthService {
         body: JSON.stringify({ email, name })
       });
 
-      console.log('PIN request response status:', response.status);
-      console.log('PIN request response ok:', response.ok);
-
       if (!response.ok) {
         const errorText = await response.text();
-        console.log('PIN request error response:', errorText);
         const error = await response.json().catch(() => ({ message: errorText }));
         throw new Error(error.message || 'Failed to send PIN');
       }
 
-      const result = await response.json();
-      console.log('PIN request success:', result);
       return { success: true, message: 'PIN sent to your email' };
     } catch (error) {
       console.error('Email PIN request failed:', error);
@@ -440,7 +433,6 @@ class AuthService {
 
   async verifyEmailPin(email, pin) {
     try {
-      console.log('Making PIN verification request for:', email, 'PIN length:', pin.length);
       const apiBase = this.apiBase();
       if (!apiBase) throw new Error('API URL not set — edit docs/firebase-config.js');
       const response = await fetch(`${apiBase}/api/auth/verify-pin`, {
@@ -451,42 +443,27 @@ class AuthService {
         body: JSON.stringify({ email, pin })
       });
 
-      console.log('PIN verification response status:', response.status);
-      console.log('PIN verification response ok:', response.ok);
-
       if (!response.ok) {
         const errorText = await response.text();
-        console.log('PIN verification error response:', errorText);
         const error = await response.json().catch(() => ({ message: errorText }));
         throw new Error(error.message || 'Invalid PIN');
       }
 
       const data = await response.json();
-      console.log('PIN verification success, received custom token:', !!data.customToken);
-
       await this.ensureAuthClient();
       // Sign in with custom token
-      console.log('Signing in with custom token...');
       const result = await this.signInWithCustomTokenResilient(data.customToken);
-      console.log('Firebase sign in successful for user:', result.user.uid);
 
       // Create/update user document
-      console.log('Creating/updating user document...');
       try {
         await this.createOrUpdateUser(result.user, { email, name: data.name });
-        console.log('User document created/updated successfully');
       } catch (error) {
-        console.warn('User document update after PIN (non-blocking):', error);
-        // Continue — login is successful if custom token sign-in succeeded
+        console.warn('[Moremi] User document update after PIN (non-blocking):', error);
       }
 
       // Store authentication state for offline use
-      console.log('DEBUG: Setting localStorage - userAuthenticated=true, authenticatedUserName=', data.name);
       mlsSet('userAuthenticated', 'true');
       mlsSet('authenticatedUserName', data.name);
-
-      // Auth controller will automatically detect the sign-in via onAuthStateChanged listener
-      console.log('PIN verification complete - auth state listener will handle the rest');
 
       return { success: true, user: result.user };
     } catch (error) {
@@ -498,7 +475,6 @@ class AuthService {
   // Phone Authentication
   async requestPhoneOtp(phoneNumber, name) {
     try {
-      console.log('Requesting phone OTP for:', phoneNumber);
       await this.ensureAuthClient();
 
       // Validate phone number format
@@ -509,8 +485,6 @@ class AuthService {
 
       // Initialize reCAPTCHA if not already done
       if (!this.recaptchaVerifier) {
-        console.log('Setting up reCAPTCHA verifier...');
-
         // Clear any existing reCAPTCHA
         const container = document.getElementById('recaptcha-container');
         if (container) {
@@ -520,31 +494,25 @@ class AuthService {
         try {
           this.recaptchaVerifier = new RecaptchaVerifier(this.auth, 'recaptcha-container', {
             size: 'invisible',
-            callback: (response) => {
-              console.log('reCAPTCHA solved successfully');
-            },
+            callback: () => {},
             'expired-callback': () => {
-              console.log('reCAPTCHA expired, will recreate on next attempt');
               this.recaptchaVerifier = null;
             },
             'error-callback': (error) => {
-              console.error('reCAPTCHA error:', error);
+              console.error('[Moremi] reCAPTCHA error:', error);
             }
           });
-          console.log('reCAPTCHA verifier created successfully');
         } catch (error) {
-          console.error('Failed to create reCAPTCHA verifier:', error);
+          console.error('[Moremi] Failed to create reCAPTCHA verifier:', error);
           throw new Error('Failed to initialize security verification. Please refresh the page and try again.');
         }
       }
 
-      console.log('Sending phone verification...');
       this.confirmationResult = await signInWithPhoneNumber(this.auth, phoneNumber, this.recaptchaVerifier);
 
       // Store user data for later use
       sessionStorage.setItem('pendingPhoneUser', JSON.stringify({ name, phone: phoneNumber }));
 
-      console.log('Phone verification sent successfully');
       return { success: true, message: 'SMS code sent to your phone' };
 
     } catch (error) {
@@ -584,7 +552,6 @@ class AuthService {
         sessionStorage.removeItem('pendingPhoneUser');
 
         // Store authentication state for offline use
-        console.log('DEBUG: Setting localStorage for phone auth - userAuthenticated=true, authenticatedUserName=', pendingUserData.name);
         mlsSet('userAuthenticated', 'true');
         mlsSet('authenticatedUserName', pendingUserData.name);
       }
@@ -598,25 +565,8 @@ class AuthService {
 
   // User Management
   async createOrUpdateUser(user, userData) {
-    console.log('🔥 STARTING createOrUpdateUser method');
-    console.log('🔥 User object:', { uid: user.uid, email: user.email, phone: user.phoneNumber });
-    console.log('🔥 UserData:', userData);
-    console.log('🔥 Firestore instance available:', !!this.db);
-    console.log('🔥 Auth instance available:', !!this.auth);
-    console.log('🔥 Current user authenticated:', this.auth?.currentUser ? 'YES' : 'NO');
-    console.log('🔥 Current user UID matches:', this.auth?.currentUser?.uid === user.uid ? 'YES' : 'NO');
-      console.log('🔥 Database being used:', this.db.app.options.projectId, 'database:', this.db._databaseId || 'default');
-      console.log('🔥 Auth context - currentUser:', this.auth.currentUser ? 'EXISTS' : 'NULL');
-      console.log('🔥 Auth context - UID:', this.auth.currentUser?.uid);
-      console.log('🔥 Auth context - isAnonymous:', this.auth.currentUser?.isAnonymous);
-
-    if (!this.db) {
-      throw new Error('Firestore instance not available');
-    }
-
-    if (!this.auth?.currentUser) {
-      throw new Error('User not authenticated');
-    }
+    if (!this.db) throw new Error('Firestore instance not available');
+    if (!this.auth?.currentUser) throw new Error('User not authenticated');
 
     const userDoc = {
       uid: user.uid,
@@ -627,73 +577,13 @@ class AuthService {
       lastLogin: serverTimestamp()
     };
 
-    console.log('🔥 User document data to write:', userDoc);
-
     try {
       const docRef = doc(this.db, 'users', user.uid);
-      console.log('🔥 Document reference path:', docRef.path);
-      console.log('🔥 About to call setDoc...');
-
-      try {
-        console.log('🔥 Testing basic Firestore connectivity first...');
-
-        // Test connectivity by trying to read from observations collection (which works)
-        console.log('🔥 Attempting to read from observations collection to test connectivity...');
-        const testDocRef = doc(this.db, 'observations', 'connectivity_test_' + Date.now());
-        const testReadPromise = getDoc(testDocRef);
-        const testTimeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Connectivity test timeout')), 5000)
-        );
-
-        await Promise.race([testReadPromise, testTimeoutPromise]);
-        console.log('✅ Firestore connectivity test passed (can read from observations)');
-
-        console.log('🔥 Now calling setDoc...');
-        const setDocPromise = setDoc(docRef, userDoc, { merge: true });
-        const setDocTimeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('setDoc timeout after 10 seconds')), 10000)
-        );
-
-        await Promise.race([setDocPromise, setDocTimeoutPromise]);
-        console.log('✅ setDoc completed successfully');
-      } catch (setDocError) {
-        console.error('❌ setDoc failed with error:');
-        console.error('❌ Error code:', setDocError.code);
-        console.error('❌ Error message:', setDocError.message);
-        console.error('❌ Full error:', setDocError);
-
-        // Check if it's a network/connectivity error
-        if (setDocError.message.includes('timeout') || setDocError.message.includes('network')) {
-          console.error('🚨 USERS COLLECTION ISSUE: Connectivity works (observations collection accessible)');
-          console.error('🚨 But users collection writes are blocked. Possible causes:');
-          console.error('🚨 - Users collection rules not applied correctly');
-          console.error('🚨 - Document ID format issues');
-          console.error('🚨 - Users collection name conflict');
-          console.error('🚨 - Firebase security/policies specific to users collection');
-        }
-
-        throw setDocError;
-      }
-
-      // Verify the document was created
-      console.log('🔍 Verifying document creation...');
-      const docSnap = await getDoc(docRef);
-      if (docSnap.exists()) {
-        console.log('✅ Document verification successful!');
-        console.log('✅ Document data:', docSnap.data());
-      } else {
-        console.error('❌ Document verification failed - document does not exist after creation');
-      }
-
+      await setDoc(docRef, userDoc, { merge: true });
     } catch (error) {
-      console.error('❌ CRITICAL ERROR in createOrUpdateUser:');
-      console.error('❌ Error code:', error.code);
-      console.error('❌ Error message:', error.message);
-      console.error('❌ Full error object:', error);
+      console.error('[Moremi] createOrUpdateUser failed:', error.code, error.message);
       throw error;
     }
-
-    console.log('🔥 createOrUpdateUser method completed');
   }
 
   async updateUserLastLogin(uid) {
@@ -710,51 +600,15 @@ class AuthService {
   }
 
   async checkUserStatus() {
-    if (!this.currentUser) return null;
-
+    if (!this.currentUser || !this.db) return null;
     try {
-      // First test if we can read from health collection (should always work)
-      console.log('🔍 Testing Firestore connectivity...');
-      try {
-        const testDoc = await getDoc(doc(this.db, 'health', 'connectivity_test'));
-        console.log('✅ Firestore connectivity test passed');
-      } catch (testError) {
-        console.warn('⚠️ Firestore connectivity test failed:', testError.message);
-        console.warn('⚠️ This suggests Firestore rules are not deployed correctly');
-
-        // Try to test with a simple write operation to see if auth works
-        console.log('🔍 Testing write permissions with observations collection...');
-        try {
-          // This should work if rules are deployed correctly
-          const testWriteRef = doc(this.db, 'observations', 'permission_test_' + Date.now());
-          await setDoc(testWriteRef, { test: true, timestamp: new Date() });
-          console.log('✅ Write permission test passed - rules are working');
-        } catch (writeError) {
-          console.error('❌ Write permission test failed:', writeError.message);
-          console.error('❌ Rules may not be deployed or auth context is wrong');
-
-          // Try health collection read (should always work)
-          console.log('🔍 Testing health collection read...');
-          try {
-            const healthDoc = await getDoc(doc(this.db, 'health', 'test'));
-            console.log('✅ Health collection accessible');
-          } catch (healthError) {
-            console.error('❌ Even health collection failed:', healthError.message);
-            console.error('❌ This suggests database connection or basic auth issues');
-          }
-        }
-      }
-
       const userDoc = await getDoc(doc(this.db, 'users', this.currentUser.uid));
       if (userDoc.exists()) {
-        console.log('✅ User document found:', userDoc.id);
         return userDoc.data();
       }
-      console.log('⚠️ User document not found:', this.currentUser.uid);
       return null;
     } catch (error) {
-      console.error('❌ Failed to check user status:', error);
-      console.error('❌ Error details:', error.code, error.message);
+      console.error('[Moremi] checkUserStatus failed:', error.code, error.message);
       return null;
     }
   }
@@ -763,15 +617,12 @@ class AuthService {
   async canSubmitData() {
     const userStatus = await this.checkUserStatus();
     if (!userStatus) {
-      console.log('User status not found - allowing submission (new user)');
       return true; // Allow new users to submit until status is set
     }
 
     const isActive = userStatus.status === 'active' || userStatus.status === undefined;
-    console.log('User submission check - status:', userStatus.status, 'allowed:', isActive);
-
     if (!isActive) {
-      console.warn('🚫 REVOKED USER attempted to submit data - BLOCKED');
+      console.warn('[Moremi] REVOKED USER attempted to submit data - BLOCKED');
     }
 
     return isActive;
