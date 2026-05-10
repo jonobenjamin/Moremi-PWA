@@ -44,13 +44,16 @@ class AuthService {
   bindAuthStateListener() {
     if (this._authListenerBound || !this.auth) return;
     this._authListenerBound = true;
+    console.log('[Moremi] Binding auth state listener to instance:', this.auth.app.options.projectId);
     onAuthStateChanged(this.auth, async (user) => {
+      console.log('[Moremi] Auth state changed. User:', user ? user.uid : 'null', 'Authenticated flag:', mlsGet('userAuthenticated'));
       if (user && moremiIsLegacyFirebaseUid(user.uid)) {
         console.warn(
-          '[Moremi] This app no longer uses custom sign-in IDs. Signed out — please sign in again with email/password or PIN.'
+          `[Moremi] User ${user.uid} is using a legacy ID format. Signing out.`
         );
         try {
           await signOut(this.auth);
+          console.log('[Moremi] Legacy user signed out successfully');
         } catch (e) {
           console.warn('[Moremi] signOut (legacy uid):', e);
         }
@@ -172,7 +175,10 @@ class AuthService {
   async signInWithCustomTokenResilient(customToken) {
     const attempt = () => signInWithCustomToken(this.auth, customToken);
     try {
-      return await attempt();
+      const result = await attempt();
+      console.log('[Moremi] Signed in with custom token successfully:', result.user.uid);
+      this.currentUser = result.user;
+      return result;
     } catch (e) {
       const retryable =
         e &&
@@ -203,6 +209,7 @@ class AuthService {
     let result;
     try {
       result = await signInWithEmailAndPassword(this.auth, emailNorm, password);
+      this.currentUser = result.user;
     } catch (e) {
       const code = e && e.code;
       const msg = String(e && e.message ? e.message : e || '');
@@ -233,7 +240,7 @@ class AuthService {
       }
       if (credProblem) {
         throw new Error(
-          'That email and password don’t match what Firebase has. If you ever used “Email (PIN)”, Firebase gave you a random password you never saw — tap Forgot password and set a new one. In Firebase Console → Authentication → Users, confirm this email exists with Email/Password. [' +
+          'That email and password don’t match what Firebase has. If you just created this account via PIN or Phone, you might need to tap "Forgot password" to set a password for the first time. In Firebase Console → Authentication → Users, confirm this email exists with Email/Password. [' +
             (code || rest || 'invalid-credentials') +
             ']'
         );
@@ -296,6 +303,7 @@ class AuthService {
   }
 
   async registerAccount({ username, password, email, phone, displayName }) {
+    console.log('[Moremi] Starting registration for:', email);
     const apiBase = this.apiBase();
     if (!apiBase) throw new Error('API URL not set — edit docs/firebase-config.js');
     await this.ensureAuthClient();
@@ -321,6 +329,7 @@ class AuthService {
       body: JSON.stringify(body)
     });
     const data = await response.json().catch(() => ({}));
+    console.log('[Moremi] Registration response status:', response.status, 'Has token:', !!data.customToken);
     if (!response.ok) {
       throw new Error(data.message || 'Registration failed');
     }
@@ -328,18 +337,21 @@ class AuthService {
       throw new Error('Invalid server response');
     }
     const result = await this.signInWithCustomTokenResilient(data.customToken);
+    console.log('[Moremi] Signed in after registration. UID:', result.user.uid);
     mlsSet('userAuthenticated', 'true');
     mlsSet('authenticatedUserName', data.name || body.displayName);
     mlsSet('authenticatedUsername', data.email || emailNorm);
     try {
+      console.log('[Moremi] Creating user document in Firestore...');
       await this.createOrUpdateUser(result.user, {
         email: body.email,
         name: data.name || body.displayName,
         phone: body.phone,
         username: data.username || body.username
       });
+      console.log('[Moremi] User document created successfully');
     } catch (err) {
-      console.warn('createOrUpdateUser after register:', err);
+      console.warn('[Moremi] createOrUpdateUser after register:', err);
     }
     return result;
   }
@@ -348,9 +360,18 @@ class AuthService {
    * Create or merge userProfiles for the signed-in user (after registration wizard).
    */
   async saveInitialUserProfile({ avatarEmoji }) {
+    console.log('[Moremi] Saving initial user profile...');
     await this.ensureAuthClient();
-    const uid = this.auth.currentUser?.uid;
-    if (!uid) throw new Error('Not signed in');
+    const uid = this.auth.currentUser?.uid || this.currentUser?.uid;
+    console.log('[Moremi] saveInitialUserProfile: Current UID:', uid, 'Auth flag:', mlsGet('userAuthenticated'));
+    if (!uid) {
+      console.error('[Moremi] saveInitialUserProfile: No current user UID found', {
+        authCurrentUser: !!this.auth?.currentUser,
+        thisCurrentUser: !!this.currentUser,
+        lsAuthenticated: mlsGet('userAuthenticated')
+      });
+      throw new Error('Not signed in — please sign in again');
+    }
     if (!this.db) throw new Error('Firestore not ready');
 
     const displayName = (mlsGet('authenticatedUserName') || 'User').trim() || 'User';
@@ -384,7 +405,7 @@ class AuthService {
     const apiBase = this.apiBase();
     if (!apiBase) throw new Error('API URL not set');
     await this.ensureAuthClient();
-    const user = this.auth.currentUser;
+    const user = this.auth.currentUser || this.currentUser;
     if (!user) throw new Error('Not signed in');
     const token = await user.getIdToken();
     const inviteCode = String(rawCode || '').trim().toUpperCase();
@@ -544,6 +565,7 @@ class AuthService {
       }
 
       const result = await this.confirmationResult.confirm(otp);
+      this.currentUser = result.user;
 
       // Update user document with phone auth data
       const pendingUserData = JSON.parse(sessionStorage.getItem('pendingPhoneUser'));
@@ -686,6 +708,7 @@ class AuthService {
       return;
     }
     if (this.auth.currentUser && mlsGet('userAuthenticated') !== 'true') {
+      console.warn('[Moremi] Clearing stale session: Firebase user exists but userAuthenticated flag is missing/false.');
       try {
         await signOut(this.auth);
       } catch (e) {
