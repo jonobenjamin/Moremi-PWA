@@ -1,4 +1,4 @@
-// Authentication Service — MOREMI_AUTH_MODULE=moremi-storage-2026050815
+// Authentication Service — MOREMI_AUTH_MODULE=moremi-storage-2026050817
 import {
   mlsGet,
   mlsSet,
@@ -44,7 +44,9 @@ class AuthService {
   bindAuthStateListener() {
     if (this._authListenerBound || !this.auth) return;
     this._authListenerBound = true;
+    console.log('[Moremi] Binding auth state listener to instance:', this.auth?.app?.options?.projectId || 'unknown');
     onAuthStateChanged(this.auth, async (user) => {
+      console.log('[Moremi] Auth state changed. User:', user ? user.uid : 'null', 'Authenticated flag:', mlsGet('userAuthenticated'));
       if (user && moremiIsLegacyFirebaseUid(user.uid)) {
         console.warn(
           '[Moremi] This app no longer uses custom sign-in IDs. Signed out — please sign in again with email/password or PIN.'
