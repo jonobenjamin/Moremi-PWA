@@ -118,14 +118,35 @@ List<LatLng> _coordsToPoints(List<dynamic> coords) {
   return out;
 }
 
+/// Maps OSM fclass to road scale (1 = major, 2 = regional, 3 = local).
+int _fclassToScale(String? fclass) {
+  switch (fclass?.toLowerCase()) {
+    case 'motorway':
+    case 'motorway_link':
+    case 'trunk':
+    case 'trunk_link':
+    case 'primary':
+    case 'primary_link':
+      return 1;
+    case 'secondary':
+    case 'secondary_link':
+    case 'tertiary':
+    case 'tertiary_link':
+      return 2;
+    default:
+      return 3;
+  }
+}
+
 List<BotsRoadPolyline> parseBotsRoads(Map<String, dynamic> geojson) {
   final out = <BotsRoadPolyline>[];
   final features = geojson['features'] as List<dynamic>? ?? [];
   for (final raw in features) {
     if (raw is! Map<String, dynamic>) continue;
     final props = raw['properties'] as Map<String, dynamic>? ?? {};
-    final scale = (props['scale'] as num?)?.toInt() ?? 1;
     final fclass = props['fclass']?.toString();
+    // Derive scale from fclass if no explicit scale field exists.
+    final scale = (props['scale'] as num?)?.toInt() ?? _fclassToScale(fclass);
     final geom = raw['geometry'] as Map<String, dynamic>?;
     if (geom == null) continue;
     final type = geom['type'] as String? ?? '';
