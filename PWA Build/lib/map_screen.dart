@@ -1,9 +1,9 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show compute;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_map/flutter_map.dart';
-import 'package:flutter_map_geojson/flutter_map_geojson.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
@@ -39,10 +39,19 @@ class MapScreen extends StatefulWidget {
   State<MapScreen> createState() => _MapScreenState();
 }
 
+// Top-level functions required by compute() — must not be closures.
+List<BotsRoadPolyline> _parseRoadsIsolate(String json) =>
+    parseBotsRoads(jsonDecode(json) as Map<String, dynamic>);
+
+List<NatParkRegion> _parseParksIsolate(String json) =>
+    parseNatParks(jsonDecode(json) as Map<String, dynamic>);
+
+List<BotsPoi> _parsePoisIsolate(String json) =>
+    parseBotsPois(jsonDecode(json) as Map<String, dynamic>);
+
 class _MapScreenState extends State<MapScreen> {
   late MapController _mapController;
   bool _ownMapController = false;
-  GeoJsonParser? _boundaryParser;
   List<BotsRoadPolyline> _roads = [];
   List<NatParkRegion> _natParks = [];
   List<BotsPoi> _pois = [];
@@ -83,26 +92,22 @@ class _MapScreenState extends State<MapScreen> {
     });
 
     try {
-      final boundaryJsonString =
-          await rootBundle.loadString('assets/Moremi_boundary.geojson');
-      final boundaryData = jsonDecode(boundaryJsonString) as Map<String, dynamic>;
-      _boundaryParser = GeoJsonParser()..parseGeoJson(boundaryData);
+      // Load raw strings first (fast), then parse in background isolates.
+      final roadsRaw = await rootBundle.loadString('assets/bots_roads.geojson');
+      final parksRaw = await rootBundle.loadString('assets/nat_parks.geojson');
 
-      final roadsJsonString =
-          await rootBundle.loadString('assets/bots_roads.geojson');
-      final roadsData = jsonDecode(roadsJsonString) as Map<String, dynamic>;
-      _roads = parseBotsRoads(roadsData);
+      // Run heavy JSON parsing off the main thread.
+      final results = await Future.wait([
+        compute(_parseRoadsIsolate, roadsRaw),
+        compute(_parseParksIsolate, parksRaw),
+      ]);
 
-      final parksJsonString =
-          await rootBundle.loadString('assets/nat_parks.geojson');
-      final parksData = jsonDecode(parksJsonString) as Map<String, dynamic>;
-      _natParks = parseNatParks(parksData);
+      _roads = results[0] as List<BotsRoadPolyline>;
+      _natParks = results[1] as List<NatParkRegion>;
 
       try {
-        final poisJsonString =
-            await rootBundle.loadString('assets/bots_pois.geojson');
-        final poisData = jsonDecode(poisJsonString) as Map<String, dynamic>;
-        _pois = parseBotsPois(poisData);
+        final poisRaw = await rootBundle.loadString('assets/bots_pois.geojson');
+        _pois = await compute(_parsePoisIsolate, poisRaw);
       } catch (_) {
         _pois = [];
       }
@@ -394,8 +399,6 @@ class _MapScreenState extends State<MapScreen> {
                     },
                   ),
                   children: [
-                    if (_boundaryParser != null)
-                      PolygonLayer(polygons: _boundaryParser!.polygons),
                     if (parkPolygons.isNotEmpty)
                       PolygonLayer(polygons: parkPolygons),
                     if (widget.layerVisibility.natParksEnabled &&
