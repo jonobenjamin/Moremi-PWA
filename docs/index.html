@@ -1,38 +1,132 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <!--
-    If you are serving your web app in a path other than the root, change the
-    href value below to reflect the base path you are serving from.
-
-    The path provided below has to start and end with a slash "/" in order for
-    it to work correctly.
-
-    For more details:
-    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
-
-    This is a placeholder for base href that will be replaced by the value of
-    the `--base-href` argument provided to `flutter build`.
-  -->
-  <base href="/">
+  <base href="/Moremi-PWA/">
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Moremi wildlife sightings">
+
+  <!-- Link preview (Open Graph / Twitter) -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Moremi Wildlife Sightings">
+  <meta property="og:description" content="Record and share wildlife sightings in the Moremi area.">
+  <meta property="og:image" content="https://jonobenjamin.github.io/Moremi-PWA/icons/Logo_icon.png">
+  <meta property="og:url" content="https://jonobenjamin.github.io/Moremi-PWA/">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Moremi Wildlife Sightings">
+  <meta name="twitter:image" content="https://jonobenjamin.github.io/Moremi-PWA/icons/Logo_icon.png">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="offline_mobile_app">
+  <meta name="apple-mobile-web-app-title" content="Moremi">
   <link rel="apple-touch-icon" href="icons/Logo_icon.png">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="icons/Logo_icon.png"/>
 
-  <title>offline_mobile_app</title>
+  <title>Moremi Wildlife Sightings</title>
   <link rel="manifest" href="manifest.json">
+
+  <style>
+    html {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      overflow: hidden;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      min-height: 100vh;
+      min-height: 100dvh;
+      overflow: hidden;
+      position: relative;
+      background-color: #1a1a1a;
+      -webkit-text-size-adjust: 100%;
+    }
+
+    flutter-view {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      width: 100%;
+      height: 100%;
+      max-width: 100%;
+      max-height: 100%;
+      z-index: 0;
+      display: block;
+    }
+
+    flt-scene-host,
+    flt-glass-pane {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+  </style>
+
+  <script>
+    (function () {
+      try {
+        if (typeof URLSearchParams === 'undefined') return;
+        var p = new URLSearchParams(window.location.search);
+        if (p.get('moremi_dev_sw_reset') === '1' && 'serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistrations().then(function (regs) {
+            regs.forEach(function (r) { r.unregister(); });
+          });
+        }
+      } catch (e) {}
+    })();
+  </script>
+
+  <script>
+    function moremiLsPrefix() {
+      try {
+        var path = window.location.pathname || '/';
+        var seg = path.replace(/^\/+|\/+$/g, '').split('/').filter(function (x) { return x; })[0] || 'app';
+        return 'moremi:' + seg + ':';
+      } catch (e) {
+        return 'moremi:app:';
+      }
+    }
+    function moremiSignOut() {
+      if (window.authService && typeof window.authService.signOut === 'function') {
+        return window.authService.signOut().then(function () {
+          window.location.reload();
+        }).catch(function () {
+          window.location.reload();
+        });
+      }
+      try {
+        var p = moremiLsPrefix();
+        ['firebaseIdToken', 'firebaseUid', 'userAuthenticated', 'authenticatedUserName', 'authenticatedUsername'].forEach(function (k) {
+          localStorage.removeItem(p + k);
+        });
+      } catch (e) {}
+      window.location.reload();
+    }
+  </script>
+
+  <!-- Service worker: only flutter_bootstrap.js registers it (with ?v=...) -->
+  <!-- NOTE: This file is copied to index.html by ../build-app.sh after each Flutter build. Edit index.custom.html, not index.html. -->
+
+  <script type="module" src="firebase-config.js?v=moremi-fireshell-2026051414"></script>
+  <script type="module" src="auth-service.js?v=moremi-fireshell-2026051419"></script>
+  <script type="module" src="auth-ui.js?v=moremi-fireshell-2026051419"></script>
+  <script type="module" src="auth-controller.js?v=moremi-fireshell-2026051414"></script>
+  <script src="app-update.js?v=moremi-fireshell-2026051414"></script>
+  <script src="pwa-install.js?v=moremi-fireshell-2026051414"></script>
 </head>
 <body>
-  <script src="flutter_bootstrap.js" async></script>
+  <script src="flutter_bootstrap.js?v=moremi-fireshell-2026051220" defer id="flutter-bootstrap-script"></script>
 </body>
 </html>
