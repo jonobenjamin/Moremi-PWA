@@ -86,43 +86,41 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Future<void> _loadMapData() async {
+    // Show the map immediately; layers will appear as they finish loading.
+    if (!mounted) return;
     setState(() {
-      _isLoading = true;
+      _isLoading = false;
       _errorMessage = null;
     });
 
     try {
-      // Load raw strings first (fast), then parse in background isolates.
+      // Load and parse heavy GeoJSON off the main thread via compute().
       final roadsRaw = await rootBundle.loadString('assets/bots_roads.geojson');
       final parksRaw = await rootBundle.loadString('assets/nat_parks.geojson');
 
-      // Run heavy JSON parsing off the main thread.
       final results = await Future.wait([
         compute(_parseRoadsIsolate, roadsRaw),
         compute(_parseParksIsolate, parksRaw),
       ]);
 
-      _roads = results[0] as List<BotsRoadPolyline>;
-      _natParks = results[1] as List<NatParkRegion>;
+      if (!mounted) return;
+      setState(() {
+        _roads = results[0] as List<BotsRoadPolyline>;
+        _natParks = results[1] as List<NatParkRegion>;
+      });
 
       try {
         final poisRaw = await rootBundle.loadString('assets/bots_pois.geojson');
-        _pois = await compute(_parsePoisIsolate, poisRaw);
-      } catch (_) {
-        _pois = [];
-      }
+        final pois = await compute(_parsePoisIsolate, poisRaw);
+        if (!mounted) return;
+        setState(() => _pois = pois);
+      } catch (_) {}
 
       final subtypes = accommodationSubtypesFromPois(_pois);
       widget.onAccommodationTypesReady?.call(subtypes);
-
-      if (!mounted) return;
-      setState(() => _isLoading = false);
     } catch (e) {
       if (!mounted) return;
-      setState(() {
-        _errorMessage = 'Failed to load map data: $e';
-        _isLoading = false;
-      });
+      setState(() => _errorMessage = 'Failed to load map data: $e');
     }
   }
 
@@ -379,7 +377,10 @@ class _MapScreenState extends State<MapScreen> {
               final h =
                   constraints.maxHeight > 0 ? constraints.maxHeight : mq.height;
               if (w <= 0 || h <= 0) return const SizedBox.shrink();
-              return SizedBox(
+              return ColoredBox(
+                // Earthy parchment background — visible with no tile layer.
+                color: const Color(0xFFEDE8E0),
+                child: SizedBox(
                 width: w,
                 height: h,
                 child: FlutterMap(
@@ -457,17 +458,17 @@ class _MapScreenState extends State<MapScreen> {
                       ),
                   ],
                 ),
+              ),
               );
             },
           ),
         ),
+        // Small corner spinner while layers stream in — map is always visible.
         if (_isLoading)
-          Positioned.fill(
-            child: Container(
-              color: Colors.black.withValues(alpha: 0.5),
-              alignment: Alignment.center,
-              child: const MoremiPangolinLoadingIndicator(size: 52),
-            ),
+          const Positioned(
+            top: 12,
+            right: 12,
+            child: MoremiPangolinLoadingIndicator(size: 32),
           ),
         if (_errorMessage != null)
           Positioned.fill(
