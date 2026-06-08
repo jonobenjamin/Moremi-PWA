@@ -259,21 +259,14 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   List<Polyline> _visibleRoadPolylines() {
-    final v = widget.layerVisibility;
-    if (!v.roadsEnabled) return [];
+    if (!widget.layerVisibility.roadsEnabled) return [];
     final out = <Polyline>[];
     for (final road in _roads) {
-      if (road.scale == 1) {
-        if (!v.roadScale1) continue;
-      } else if (road.scale == 2) {
-        if (!v.roadScale2 || _zoom < kRoadScale2MinZoom) continue;
-      } else if (road.scale == 3) {
-        if (!v.roadScale3 || _zoom < kRoadScale3MinZoom) continue;
-      } else {
-        continue;
-      }
+      if (road.scale == 2 && _zoom < kRoadScale2MinZoom) continue;
+      if (road.scale == 3 && _zoom < kRoadScale3MinZoom) continue;
+      if (road.scale > 3) continue;
       final color = road.scale == 1
-          ? Colors.black
+          ? Colors.black87
           : road.scale == 2
               ? const Color(0xFF424242)
               : const Color(0xFF757575);
@@ -401,11 +394,6 @@ class _MapScreenState extends State<MapScreen> {
                     },
                   ),
                   children: [
-                    TileLayer(
-                      urlTemplate:
-                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                      userAgentPackageName: 'com.example.offline_mobile_app',
-                    ),
                     if (_boundaryParser != null)
                       PolygonLayer(polygons: _boundaryParser!.polygons),
                     if (parkPolygons.isNotEmpty)

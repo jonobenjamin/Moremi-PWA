@@ -3,30 +3,41 @@ const MANIFEST = 'flutter-app-manifest';
 const TEMP = 'flutter-temp-cache';
 const CACHE_NAME = 'flutter-app-cache';
 
-const RESOURCES = {"flutter_bootstrap.js": "00471c830699dfa6566029c8d7676eb9",
+const RESOURCES = {"flutter_bootstrap.js": "e554499f394d8c1b673d8dfeb0d9bcb7",
+"auth-ui.js": "dd641d7f13591576a61c22e5f1beebec",
 "version.json": "b359803206879e1d7961102c7506ac90",
-"index.html": "8523400e3a3889702a21f80226a8ac7b",
-"/": "8523400e3a3889702a21f80226a8ac7b",
-"main.dart.js": "66b1b23e0962e10d100a4a1fca9b9edb",
+"moremi-scoped-storage.js": "c2d4f6b1e74de57e46212c7332c74f3b",
+"index.html": "f9bbfcb196ce0ae861652309b30edb29",
+"/": "f9bbfcb196ce0ae861652309b30edb29",
+"auth-service.js": "a25ccd5e721998e5d14cf07edac1bebe",
+"main.dart.js": "2bc8977efbfe440fa36301020be6c62d",
 "flutter.js": "24bc71911b75b5f8135c949e27a2984e",
+"auth-controller.js": "cc2a3cd079b8649efe6e8bc99333ca8a",
 "favicon.png": "5dcef449791fa27946b3d35ad8803796",
+"index.custom.html": "cd848fbffa8cded29cf544ccb66a762f",
+"moremi_build.json": "826cebc32ea63336bc6f68b33dc55ee2",
 "icons/Icon-192.png": "0658615ef1bdea8a662d5bb1c68d97b6",
 "icons/Icon-maskable-192.png": "0658615ef1bdea8a662d5bb1c68d97b6",
+"icons/KPR_logo.png": "f70391debeb086a102e3f8fe1a447937",
 "icons/Logo_icon.png": "319134ea387aa3f5cbf0f4599dc40eab",
 "icons/Icon-maskable-512.png": "f47886b0a99aeb0b6fc9ee305d3b4975",
 "icons/KPR_icon.png": "893ac2e2763c1ad90322d3bf662fc931",
 "icons/Icon-512.png": "f47886b0a99aeb0b6fc9ee305d3b4975",
+"app-update.js": "a4affabcd17d4f14e8c2e428a251ae0b",
+"moremi-storage.js": "be0335e7f0ebb3941d66be372b859e82",
 "manifest.json": "5c5b07b7c9b1cb74210f81ac30130da7",
+"firebase-config.js": "5648325c2bf95eb98cb955eff80be4d9",
+"assets/AssetManifest.json": "925fb9ab63aff81cc8d7dbd457441512",
 "assets/NOTICES": "0db2229f6edb34188fc05945620ac405",
 "assets/KPR.svg": "36a2ad74d4133532d672f08066458352",
 "assets/FontManifest.json": "dc3d03800ccca4601324923c0b1d6d57",
 "assets/AssetManifest.bin.json": "925fb9ab63aff81cc8d7dbd457441512",
-"assets/packages/cupertino_icons/assets/CupertinoIcons.ttf": "b93248a553f9e8bc17f1065929d5934b",
+"assets/packages/cupertino_icons/assets/CupertinoIcons.ttf": "33b7d9392238c04c131b6ce224e13711",
 "assets/packages/flutter_map/lib/assets/flutter_map_logo.png": "208d63cc917af9713fc9572bd5c09362",
 "assets/shaders/ink_sparkle.frag": "ecc85a2e95f5e9f53123dcaf8cb9b6ce",
 "assets/shaders/stretch_effect.frag": "40d68efbbf360632f614c731219e95f0",
 "assets/AssetManifest.bin": "0f9f2c521ad7d0a0f6f36680f2e1fb57",
-"assets/fonts/MaterialIcons-Regular.otf": "e7069dfd19b331be16bed984668fe080",
+"assets/fonts/MaterialIcons-Regular.otf": "cf8b511a44c24f97118261f9086829a7",
 "assets/assets/camp.svg": "41c88676ab517d43f611890327b0fd5c",
 "assets/assets/lodge.svg": "f6ee6ce79b0b21805dcd95ffed24677f",
 "assets/assets/bots_pois.geojson": "0d40658a09e2bf2fe91380f49846e8f2",
@@ -37,8 +48,11 @@ const RESOURCES = {"flutter_bootstrap.js": "00471c830699dfa6566029c8d7676eb9",
 "assets/assets/bots_roads.geojson": "b11e40cdd0901d22bb7c529d28b5709d",
 "assets/assets/pangolin_loading.svg": "c855c65681b73b9916fc3ac4b57abe4d",
 "assets/assets/Moremi_boundary.geojson": "305cf978681b9325e08175952572a75b",
+"assets/assets/bots_roads.qmd": "6cbfff70a3ef84cd7443a8ec3d2caa78",
 "assets/assets/nat_parks.geojson": "626ddd895d7516261bdbf1eab541b43d",
+"assets/assets/nat_parks.qmd": "6cbfff70a3ef84cd7443a8ec3d2caa78",
 "assets/assets/binoculars.svg": "c02c790dab7bbf98db3a3fe9c5fd4a53",
+"pwa-install.js": "7031d42e3d7dd5a0fd1d9360d2a22095",
 "canvaskit/skwasm.js": "8060d46e9a4901ca9991edd3a26be4f0",
 "canvaskit/skwasm_heavy.js": "740d43a6b8240ef9e23eed8c48840da4",
 "canvaskit/skwasm.js.symbols": "3a4aadf4e8141f284bd524976b1d6bdc",
@@ -59,31 +73,13 @@ const CORE = ["main.dart.js",
 "assets/AssetManifest.bin.json",
 "assets/FontManifest.json"];
 
-const MOREMI_SW_BASE = 'Moremi-PWA';
-function moremiPublicUrl(resourceKey) {
-  var k = resourceKey === '/' || resourceKey === '' ? '' : String(resourceKey).replace(/^\//, '');
-  return self.location.origin + '/' + MOREMI_SW_BASE + '/' + k;
-}
-
-
 // During install, the TEMP cache is populated with the application shell files.
 self.addEventListener("install", (event) => {
   self.skipWaiting();
   return event.waitUntil(
-    caches.open(TEMP).then(function (cache) {
-      return Promise.allSettled(
-        CORE.map(function (value) {
-          var url = moremiPublicUrl(value);
-          var req = new Request(url, { cache: 'reload' });
-          return fetch(req)
-            .then(function (res) {
-              if (res && res.ok) return cache.put(req, res);
-            })
-            .catch(function (e) {
-              console.warn('[flutter_service_worker] install skip:', url, e);
-            });
-        })
-      );
+    caches.open(TEMP).then((cache) => {
+      return cache.addAll(
+        CORE.map((value) => new Request(value, {'cache': 'reload'})));
     })
   );
 });
@@ -116,8 +112,7 @@ self.addEventListener("activate", function(event) {
       var origin = self.location.origin;
       for (var request of await contentCache.keys()) {
         var key = request.url.substring(origin.length + 1);
-        if (key.startsWith('Moremi-PWA/')) key = key.substring(11);
-      if (key == "") {
+        if (key == "") {
           key = "/";
         }
         // If a resource from the old manifest is not in the new cache, or if
@@ -154,24 +149,6 @@ self.addEventListener("fetch", (event) => {
   if (event.request.method !== 'GET') {
     return;
   }
-
-  if (event.request.url.startsWith('https://tile.openstreetmap.org/')) {
-    event.respondWith(
-      fetch(event.request).then(function(response) {
-        if (response && response.ok) {
-          var clone = response.clone();
-          caches.open('osm-tiles').then(function(cache) { cache.put(event.request, clone); });
-        }
-        return response;
-      }).catch(function() {
-        return caches.open('osm-tiles').then(function(cache) {
-          return cache.match(event.request);
-        });
-      })
-    );
-    return;
-  }
-
   var origin = self.location.origin;
   var key = event.request.url.substring(origin.length + 1);
   // Redirect URLs to the index.html
@@ -235,19 +212,7 @@ async function downloadOffline() {
       resources.push(resourceKey);
     }
   }
-  return Promise.allSettled(
-    resources.map(function (resourceKey) {
-      var abs = moremiPublicUrl(resourceKey);
-      var reqPut = new Request(abs);
-      return fetch(abs, { cache: 'reload' })
-        .then(function (res) {
-          if (res && res.ok) return contentCache.put(reqPut, res.clone());
-        })
-        .catch(function (e) {
-          console.warn('[flutter_service_worker] offline prefetch skip:', abs, e);
-        });
-    })
-  );
+  return contentCache.addAll(resources);
 }
 // Attempt to download the resource online before falling back to
 // the offline cache.
@@ -270,9 +235,3 @@ function onlineFirst(event) {
     })
   );
 }
-
-
-// Moremi: take control of open tabs as soon as this worker activates
-self.addEventListener('activate', function (event) {
-  event.waitUntil(self.clients.claim());
-});

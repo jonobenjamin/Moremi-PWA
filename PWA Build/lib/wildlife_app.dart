@@ -135,7 +135,7 @@ class WildlifeHomePageState extends State<WildlifeHomePage> {
 
   MoremiMapLayerVisibility _mapLayerVisibility = MoremiMapLayerVisibility();
   List<String> _accommodationSubtypes = [];
-  bool _mapLegendExpanded = true;
+  bool _mapLegendExpanded = false;
 
   Timer? _refreshTicker;
 
@@ -910,48 +910,55 @@ class WildlifeHomePageState extends State<WildlifeHomePage> {
                 ),
               ),
             ),
-          Positioned(
-            right: 8,
-            bottom: 96,
-            child: SafeArea(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (_mapLegendExpanded)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: MoremiMapLegendPanel(
-                        visibility: _mapLayerVisibility,
-                        accommodationTypes: _accommodationSubtypes,
-                        onChanged: (v) => setState(() => _mapLayerVisibility = v),
-                      ),
-                    ),
-                  Material(
-                    color: Colors.white.withOpacity(0.92),
-                    shape: const CircleBorder(),
-                    child: IconButton(
-                      icon: Icon(
-                        _mapLegendExpanded ? Icons.layers : Icons.layers_outlined,
-                      ),
-                      onPressed: () =>
-                          setState(() => _mapLegendExpanded = !_mapLegendExpanded),
-                      tooltip: _mapLegendExpanded ? 'Hide map legend' : 'Show map legend',
-                    ),
-                  ),
-                ],
+          // Legend panel — floats above the bottom row, anchored right
+          if (_mapLegendExpanded)
+            Positioned(
+              right: 8,
+              bottom: 90,
+              child: SafeArea(
+                child: MoremiMapLegendPanel(
+                  visibility: _mapLayerVisibility,
+                  accommodationTypes: _accommodationSubtypes,
+                  onChanged: (v) => setState(() => _mapLayerVisibility = v),
+                ),
               ),
             ),
-          ),
+          // Bottom action row: FAB (centre) + legend toggle (right, same level)
           Positioned(
             left: 0,
             right: 0,
             bottom: 24,
-            child: Center(
-              child: FloatingActionButton(
-                onPressed: _openSubmitSheet,
-                tooltip: 'Add sighting',
-                child: const Icon(Icons.add),
+            child: SafeArea(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // Spacer to keep FAB centred visually despite the right button
+                  const SizedBox(width: 56 + 16),
+                  FloatingActionButton(
+                    heroTag: 'add_sighting',
+                    onPressed: _openSubmitSheet,
+                    tooltip: 'Add sighting',
+                    child: const Icon(Icons.add),
+                  ),
+                  const SizedBox(width: 16),
+                  FloatingActionButton.small(
+                    heroTag: 'legend_toggle',
+                    backgroundColor: Colors.white,
+                    foregroundColor: Colors.black87,
+                    elevation: 2,
+                    onPressed: () =>
+                        setState(() => _mapLegendExpanded = !_mapLegendExpanded),
+                    tooltip:
+                        _mapLegendExpanded ? 'Hide layers' : 'Show layers',
+                    child: Icon(
+                      _mapLegendExpanded
+                          ? Icons.layers
+                          : Icons.layers_outlined,
+                      size: 20,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),

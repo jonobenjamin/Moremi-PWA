@@ -55,77 +55,20 @@ class MoremiMapLegendPanel extends StatelessWidget {
   }
 }
 
-class _RoadsSection extends StatefulWidget {
+class _RoadsSection extends StatelessWidget {
   const _RoadsSection({required this.visibility, required this.onChanged});
 
   final MoremiMapLayerVisibility visibility;
   final ValueChanged<MoremiMapLayerVisibility> onChanged;
 
   @override
-  State<_RoadsSection> createState() => _RoadsSectionState();
-}
-
-class _RoadsSectionState extends State<_RoadsSection> {
-  bool _expanded = true;
-
-  @override
   Widget build(BuildContext context) {
-    final v = widget.visibility;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        InkWell(
-          onTap: () => setState(() => _expanded = !_expanded),
-          borderRadius: BorderRadius.circular(6),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 2),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _LegendSwitchRow(
-                    label: 'Roads',
-                    value: v.roadsEnabled,
-                    onChanged: (on) => widget.onChanged(v.copyWith(roadsEnabled: on)),
-                    leading: _RoadSample(scale: 1, enabled: v.roadsEnabled),
-                  ),
-                ),
-                Icon(
-                  _expanded ? Icons.expand_less : Icons.expand_more,
-                  size: 20,
-                  color: Colors.grey.shade700,
-                ),
-              ],
-            ),
-          ),
-        ),
-        if (_expanded && v.roadsEnabled) ...[
-          const SizedBox(height: 4),
-          _LegendSwitchRow(
-            label: 'Main (scale 1)',
-            subtitle: 'Always visible',
-            value: v.roadScale1,
-            onChanged: (on) => widget.onChanged(v.copyWith(roadScale1: on)),
-            leading: const _RoadSample(scale: 1),
-            dense: true,
-          ),
-          _LegendSwitchRow(
-            label: 'Regional (scale 2)',
-            subtitle: 'Zoom in',
-            value: v.roadScale2,
-            onChanged: (on) => widget.onChanged(v.copyWith(roadScale2: on)),
-            leading: const _RoadSample(scale: 2),
-            dense: true,
-          ),
-          _LegendSwitchRow(
-            label: 'Local (scale 3)',
-            subtitle: 'Zoom in further',
-            value: v.roadScale3,
-            onChanged: (on) => widget.onChanged(v.copyWith(roadScale3: on)),
-            leading: const _RoadSample(scale: 3),
-            dense: true,
-          ),
-        ],
-      ],
+    return _LegendSwitchRow(
+      label: 'Roads',
+      subtitle: 'More detail as you zoom in',
+      value: visibility.roadsEnabled,
+      onChanged: (on) => onChanged(visibility.copyWith(roadsEnabled: on)),
+      leading: _RoadSample(scale: 1, enabled: visibility.roadsEnabled),
     );
   }
 }
